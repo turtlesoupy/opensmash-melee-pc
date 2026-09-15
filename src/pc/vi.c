@@ -16,6 +16,10 @@
 #ifdef __EMSCRIPTEN__
 #include <emscripten.h>
 extern void browser_yield(void);
+EM_JS(void, browser_frame_phases, (double game, double render, double services, double wait, double begin), {
+ const p = Module.framePhases ||= {};
+ Object.assign(p, {gameMs:game, renderMs:render, servicesMs:services, waitMs:wait, beginMs:begin});
+});
 #endif
 #include <stdio.h>
 #include <stdlib.h>
@@ -52,11 +56,16 @@ void pc_frame_boundary(void)
     static u32 frame_late_33;
     static u64 sleep_worst_over_ns;
 
+#ifdef __EMSCRIPTEN__
+    static double previous_boundary;
+    const double phase_game = emscripten_get_now();
+#endif
     if (s_in_frame) {
         aurora_end_frame();
         s_in_frame = false;
     }
 #ifdef __EMSCRIPTEN__
+    const double phase_render = emscripten_get_now();
     extern void pc_audio_pump(void);
     pc_audio_pump();
 #endif
@@ -142,6 +151,7 @@ void pc_frame_boundary(void)
      * software sleep while hardware Vsync is active causes timing drift and
      * missed VBlank deadlines (tripping sudden drops to 30 FPS). */
     #ifdef __EMSCRIPTEN__
+    const double phase_services = emscripten_get_now();
     {static double next;double now=emscripten_get_now();if(next<now-100)next=now;next+=1000.0/60.0;if(next>now)emscripten_sleep((unsigned)(next-now));else browser_yield();}
     #endif
     if (!aurora_vsync_enabled()) {
@@ -167,6 +177,9 @@ void pc_frame_boundary(void)
      * Sleep a frame between attempts: without it a minimized window spins a
      * core at 100% polling SDL. */
 
+#ifdef __EMSCRIPTEN__
+    const double phase_wait = emscripten_get_now();
+#endif
     while (!aurora_begin_frame()) {
 
         event = aurora_update();
@@ -187,6 +200,10 @@ void pc_frame_boundary(void)
 
     s_retrace_count++;
 #ifdef __EMSCRIPTEN__
+    const double phase_begin = emscripten_get_now();
+    browser_frame_phases(previous_boundary ? phase_game-previous_boundary : 0,
+      phase_render-phase_game, phase_services-phase_render, phase_wait-phase_services, phase_begin-phase_wait);
+    previous_boundary = phase_begin;
     EM_ASM({if(Module.onFrame)Module.onFrame($0);},s_retrace_count);
 #endif
     pc_os_run_alarms();

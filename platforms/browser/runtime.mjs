@@ -7,6 +7,7 @@ const report=(type,data={},transfer=[])=>parent.postMessage({type,...data},locat
 const fail=error=>report('error',{message:error?.stack||String(error)});
 let resolveRuntime;
 const runtimeReady=new Promise(resolve=>resolveRuntime=resolve);
+let directSurface=false;
 let options,selection,ready=false,presentPending=false,playable=false,introReported=false;
 let started=0,lastTime=0,lastFrame=0,lastStamp=0,presented=0,combatFrames=0;
 let audioFrames=0,audioPeak=0,audioOverruns=0,phase=0,previous=[0,0];
@@ -44,13 +45,18 @@ function audioRequested(){
 }
 function present(){
  if(presentPending||!selection)return;
- if(Module._opensmash_intro_state()===1||Module._opensmash_preparation_state()===2)return;
- presentPending=true;
- createImageBitmap(Module.canvas).then(bitmap=>{
-  presented++;report('frame',{bitmap},[bitmap]);
+ const preparing=Module._opensmash_intro_state()===1||Module._opensmash_preparation_state()===2;
+ if(directSurface)Module.canvas.style.visibility=preparing?'hidden':'visible';
+ if(preparing)return;
+ const completed=()=>{
   const scene=Module._direct_scene(),kind=Module._direct_scene_kind(),mode=selection.launch.mode;
   const reached=mode===0?kind===2&&combatFrames>1&&![1,2].includes(Module._opensmash_intro_state()):mode===1?(scene>>>8)===1:mode===3?(scene>>>8)===3:true;
   if(reached&&!playable){playable=true;report('playable');report('startup-performance',{clickToMatchMs:Date.now()-(selection.requestedAt||Date.now())});}
+ };
+ if(directSurface){presented++;report('frame',{direct:true});completed();return;}
+ presentPending=true;
+ createImageBitmap(Module.canvas).then(bitmap=>{
+  presented++;report('frame',{bitmap},[bitmap]);completed();
  }).catch(fail).finally(()=>presentPending=false);
 }
 function onFrame(frame){
@@ -58,6 +64,8 @@ function onFrame(frame){
  for(let port=0;port<4;port++)applyPad(port,frame);
  const now=performance.now(),scene=Module._direct_scene(),kind=Module._direct_scene_kind();
  const intro=Module._opensmash_intro_state();
+ if(lastStamp&&now-lastStamp>33.34)report('frame-stall',{frame,scene,intro,preparation:Module._opensmash_preparation_state(),durationMs:now-lastStamp,phases:Module.framePhases||{}});
+ Module.framePhases={};
  const combat=kind===2&&Module._opensmash_preparation_state()===4&&intro!==1&&intro!==2;
  if(lastStamp){frameTimes.push(now-lastStamp);preparationSamples.push(now-lastStamp);if(preparationSamples.length>30)preparationSamples.shift();}
  if(preparationSamples.length===30&&preparationSamples.every(ms=>ms<40)){
@@ -77,7 +85,7 @@ function onFrame(frame){
  if(now-lastTime>=1000){const fps=(frame-lastFrame)*1000/(now-lastTime);report('progress',{frame,scene,sceneKind:kind,fps,audioFrames,audioPeak,audioIndices:options.audio?Array.from(new Int32Array(options.audio,0,4)):null});report('metrics',{frames:frame,combatFrames,fps,frameTimes,completeCombatInterval:intervalCombat});lastFrame=frame;lastTime=now;frameTimes=[];intervalCombat=true;}
  present();
 }
-window.Module={canvas:document.querySelector('#canvas'),onFrame,onAudio:mix,audioRequested,
+window.Module={onGraphicsPreparation:(done,total)=>report('status',{message:done===total?'Opening Melee…':`Preparing graphics… ${Math.floor(done*100/total)}%`}),canvas:document.querySelector('#canvas'),onFrame,onAudio:mix,audioRequested,
  print:text=>report('log',{text,message:text}),printErr:text=>report('log',{text,message:text}),
  onRuntimeInitialized:()=>resolveRuntime(),onAbort:fail};
 const script=document.createElement('script');script.src='./melee_browser.js';script.onerror=()=>fail(Error('Build the upstream Melee engine before launching.'));document.head.append(script);
@@ -98,6 +106,7 @@ window.addEventListener('message',async event=>{
  if(event.source!==parent||event.origin!==location.origin)return;
  const data=event.data;
  try{
+  if(data.type==='surface'){directSurface=!!data.direct;return;}
   if(data.type==='pad'){setPad(data.values);return;}
   if(data.type==='input'){if(selection)Module._direct_set_pad(...data.values);return;}
   if(data.type==='confirm'){setPad([0,256,0x80808080,0,1]);setPad([0,0,0x80808080,0,1]);return;}

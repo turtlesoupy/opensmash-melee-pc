@@ -1,14 +1,17 @@
 #ifdef __EMSCRIPTEN__
 #include <emscripten.h>
 extern "C" void browser_yield(void);
-// Copy only the used bytes out of the shared, growable WASM heap. Passing a
-// SharedArrayBuffer view to Chromium's WebGPU upload path can stall for hundreds
-// of milliseconds. Reuse an ordinary ArrayBuffer instead of allocating per draw.
+// Copy only used bytes from the shared WASM heap to an ordinary upload buffer.
+// Reuse its allocation; phase timing also exposes driver-side upload stalls.
 EM_JS(void, browser_write_buffer, (void* queue, void* buffer, unsigned offset, const void* data, unsigned size), {
+  const started = performance.now();
   let scratch = Module.gpuUploadScratch;
   if (!scratch || scratch.length < size) scratch = Module.gpuUploadScratch = new Uint8Array(2 ** Math.ceil(Math.log2(size)));
   scratch.set(HEAPU8.subarray(data, data + size));
   WebGPU.getJsObject(queue).writeBuffer(WebGPU.getJsObject(buffer), offset, scratch, 0, size);
+  const p = Module.framePhases ||= {};
+  p.uploadMs = (p.uploadMs || 0) + performance.now() - started;
+  p.uploadBytes = (p.uploadBytes || 0) + size;
 });
 #endif
 #include "frame.hpp"

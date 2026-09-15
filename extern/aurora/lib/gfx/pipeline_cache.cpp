@@ -1,3 +1,10 @@
+#ifdef __EMSCRIPTEN__
+#include <emscripten.h>
+extern "C" void browser_yield(void);
+EM_JS(void, browser_graphics_progress, (unsigned done, unsigned total), {
+  Module.onGraphicsPreparation?.(done, total);
+});
+#endif
 #include "pipeline_cache.hpp"
 
 #include "clear.hpp"
@@ -1182,6 +1189,23 @@ void begin_pipeline_frame() {
     g_pipelinesPerFrame = 0;
   }
 }
+
+#ifdef __EMSCRIPTEN__
+// Restore the cache before simulation begins. Compiling five historical
+// pipelines at each frame end otherwise turns returning visits into slow motion.
+extern "C" void browser_prepare_graphics() {
+  const size_t total = g_pipelineQueue.size() + g_backgroundPipelineQueue.size();
+  if (!total) return;
+  browser_graphics_progress(0, total);
+  while (!g_pipelineQueue.empty() || !g_backgroundPipelineQueue.empty()) {
+    g_pipelinesPerFrame = 0;
+    pipeline_worker();
+    browser_graphics_progress(total - g_pipelineQueue.size() - g_backgroundPipelineQueue.size(), total);
+    browser_yield();
+  }
+  Log.info("Prepared {} cached browser pipelines before simulation", total);
+}
+#endif
 
 void end_pipeline_frame() {
   if (!g_hasPipelineThread) {

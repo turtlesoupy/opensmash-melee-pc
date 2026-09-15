@@ -73,6 +73,8 @@ int main(int argc, char **argv) {
                     .mem2Size = PC_ARAM_SIZE};
   AuroraInfo info = aurora_initialize(argc, argv, &c);
   (void)info;
+  extern void browser_prepare_graphics(void);
+  browser_prepare_graphics();
   pc_platform_init();
   aurora_card_set_present(true);
   return melee_main();

@@ -29,5 +29,10 @@
       "address",
       "undefined"
     ]
+  },
+  "reproducibleBuild": {
+    "wasmSha256": "5ce07eaa6a24c081157de1029d315ba460e9814e0b2abf86abd1a2aba4253058",
+    "wasmBytes": 30681099,
+    "change": "SDL revision banner now uses the pinned SDL source ref instead of the enclosing Melee Git revision. Game and renderer code are unchanged from the full functional and benchmark pass."
   }
 }

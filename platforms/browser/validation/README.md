@@ -59,3 +59,8 @@ measurements. Fresh Chrome profiles are used; OS/GPU caches are not purged.
 
 See [build and reproduction instructions](../README.md). No ROM, costume fixture,
 or proprietary game asset is included in these reports.
+
+The subsequent reproducibility fix changes only SDL’s compiled revision banner.
+`build.json` retains both artifact fingerprints; game and renderer sources are
+unchanged from the full validation pass. The final rebuild is checked for
+identical output across a repository commit and for launcher/controller startup.

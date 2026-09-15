@@ -19,7 +19,14 @@ struct lbHeap_HeapOffsetView {
 };
 
 struct lbHeap_HeapDesc lbHeap_803BA380[5] = {
-    { 2, 1, 6, 0x800 },    { 3, 1, 2, 0x4F8800 }, { 4, 2, 6, 0x64B400 },
+    { 2, 1, 6, 0x800 },    { 3, 1, 2, 0x4F8800 },
+#ifdef __EMSCRIPTEN__
+    // Stage/fighter archives share this arena. Four full-resolution browser
+    // costumes (up to 2 MiB each) must fit alongside the stage and game data.
+    { 4, 2, 6, 16 * 1024 * 1024 },
+#else
+    { 4, 2, 6, 0x64B400 },
+#endif
     { 5, 4, 6, 0x96C800 }, { 6, 0, 0, 0 },
 };
 

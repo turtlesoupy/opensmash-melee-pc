@@ -1,6 +1,15 @@
 #ifdef __EMSCRIPTEN__
 #include <emscripten.h>
 extern "C" void browser_yield(void);
+// Copy only the used bytes out of the shared, growable WASM heap. Passing a
+// SharedArrayBuffer view to Chromium's WebGPU upload path can stall for hundreds
+// of milliseconds. Reuse an ordinary ArrayBuffer instead of allocating per draw.
+EM_JS(void, browser_write_buffer, (void* queue, void* buffer, unsigned offset, const void* data, unsigned size), {
+  let scratch = Module.gpuUploadScratch;
+  if (!scratch || scratch.length < size) scratch = Module.gpuUploadScratch = new Uint8Array(2 ** Math.ceil(Math.log2(size)));
+  scratch.set(HEAPU8.subarray(data, data + size));
+  WebGPU.getJsObject(queue).writeBuffer(WebGPU.getJsObject(buffer), offset, scratch, 0, size);
+});
 #endif
 #include "frame.hpp"
 
@@ -737,7 +746,7 @@ void end_frame(EndFrameCallback callback) {
     const auto upload = [&](const ByteBuffer& data, size_t capacity) {
       const size_t bytes = (data.size() + 3) & ~size_t{3};
       AURORA_ASSERT(bytes <= capacity, "Browser staging upload exceeds its pool");
-      if (bytes) g_queue.WriteBuffer(g_stagingBuffers[stagingSlot], uploadOffset, data.data(), bytes);
+      if (bytes) browser_write_buffer(g_queue.Get(), g_stagingBuffers[stagingSlot].Get(), uploadOffset, data.data(), bytes);
       uploadOffset += capacity;
     };
     upload(packet.verts, VertexBufferSize);

@@ -150,6 +150,9 @@ Handle* lbMemory_80014FC8(Handle* arg0, size_t size)
             start = (u8*) iter->x4_lo + (uintptr_t) iter->x8_hi;
         }
     }
+#ifdef __EMSCRIPTEN__
+    if (!memp_kouho) { extern int printf(const char*, ...); printf("[browser heap exhausted] lo=%p hi=%p requested=%zu free=%u\n", arg0->x4_lo, arg0->x8_hi, size, lbMemory_80014F7C(arg0)); }
+#endif
     HSD_ASSERT(0xE9, memp_kouho);
     {
         Handle* result;

@@ -254,7 +254,9 @@ bool begin_frame() noexcept {
     }
   }
 
+#ifndef __EMSCRIPTEN__
   imgui::new_frame(window::get_window_size());
+#endif
   if (!gfx::begin_frame()) {
     return false;
   }
@@ -270,7 +272,11 @@ void end_frame() noexcept {
   gx::fifo::end_frame();
   gx::texture::end_frame();
   gfx::finish();
+#ifdef __EMSCRIPTEN__
+  imgui::DrawData imguiDrawData; // Browser controls live in the launcher.
+#else
   auto imguiDrawData = imgui::freeze();
+#endif
 
   const auto& presentSource = webgpu::present_source();
   const auto viewport = webgpu::calculate_present_viewport(webgpu::g_graphicsConfig.surfaceConfiguration.width,

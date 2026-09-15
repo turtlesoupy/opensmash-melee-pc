@@ -42,6 +42,12 @@ static inline HSD_Generator* efSync_GetGenerator(HSD_Generator* generator)
 // position/rotation inheritance. Note there's variadic args!
 void* efSync_Spawn(s32 gfx_id, HSD_GObj* gobj, ...)
 {
+#ifdef __EMSCRIPTEN__
+    /* Compile this large effect dispatcher during browser loading, without
+     * creating particles, changing RNG state, or advancing the simulation. */
+    extern volatile int browser_warming_effect_code;
+    if (browser_warming_effect_code) return NULL;
+#endif
     va_list vlist;
     Vec3 translate;
     Vec3 scale;

@@ -8,11 +8,17 @@
 namespace aurora::gfx::detail {
 
 inline constexpr size_t FrameSlotCount = 2;
+#ifdef __EMSCRIPTEN__
+// The browser renderer submits inline and yields between VI ticks. One mapped
+// staging set bounds GPU work in flight and avoids five 87 MiB allocations.
+inline constexpr size_t StagingBufferCount = 1;
+#else
 inline constexpr size_t StagingBufferCount = FrameSlotCount + 3;
+#endif
 inline constexpr uint64_t StagingBufferSize = UniformBufferSize + VertexBufferSize + IndexBufferSize +
                                               StorageBufferSize + (UseTextureBuffer ? TextureUploadSize : 0);
 
-const wgpu::Buffer& staging_buffer(size_t slot);
+const wgpu::Buffer& staging_buffer(size_t slot, size_t pool = 0);
 
 struct RegisteredDrawType {
   DrawCallback draw = nullptr;

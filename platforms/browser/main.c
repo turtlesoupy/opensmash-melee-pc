@@ -75,6 +75,8 @@ int main(int argc, char **argv) {
   (void)info;
   extern void browser_prepare_graphics(void);
   browser_prepare_graphics();
+  extern void browser_warm_effect_code(void);
+  browser_warm_effect_code();
   pc_platform_init();
   aurora_card_set_present(true);
   return melee_main();

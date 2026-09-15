@@ -12,7 +12,11 @@
  * through nod. No game data is stored anywhere; it lives only in the user's
  * own image.
  */
+#ifndef __EMSCRIPTEN__
 #include <nod.h>
+#else
+#include <dolphin/dvd.h>
+#endif
 #include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -22,7 +26,9 @@
 #include <sysdolphin/baselib/sislib_font.h>
 
 #include "pc/discfont.h"
+#ifndef __EMSCRIPTEN__
 #include "disc_open.h"
+#endif
 
 #define DOL_OFFSET_FIELD 0x420
 #define FST_OFFSET_FIELD 0x424
@@ -123,6 +129,7 @@ static bool load_from_dol(const u8* dol, long len, const char* game_id)
 }
 
 /* nod returns short reads on compressed images, so loop until satisfied. */
+#ifndef __EMSCRIPTEN__
 static bool read_exact(NodHandle* disc, u8* buf, long len)
 {
     for (long done = 0; done < len;) {
@@ -135,8 +142,12 @@ static bool read_exact(NodHandle* disc, u8* buf, long len)
     return true;
 }
 
+#endif
 bool pc_load_disc_fonts(const char* disc_path)
 {
+#ifdef __EMSCRIPTEN__
+    s32 size;const u8* data=DVDGetDOLLocation(&size);return data&&load_from_dol(data,size,"GALE01");
+#else
     NodHandle* disc = NULL;
     if (pc_open_nod_disc(disc_path, &disc) != NOD_RESULT_OK || disc == NULL) {
         fprintf(stderr, "discfont: cannot open %s\n", disc_path);
@@ -181,4 +192,5 @@ done:
     free(dol);
     nod_free(disc);
     return ok;
+#endif
 }

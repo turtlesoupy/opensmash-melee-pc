@@ -393,3 +393,7 @@ void gm_801A4D34(void (*on_frame)(void), UNUSED GameSceneInfo* info)
     }
     HSD_VIWaitXFBFlush();
 }
+
+#ifdef __EMSCRIPTEN__
+unsigned direct_global_80479d58(void){return (unsigned)&gm_80479D58;}
+#endif

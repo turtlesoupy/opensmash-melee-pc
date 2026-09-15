@@ -170,6 +170,12 @@ void gm_801A4014(GameMode* mode)
     if (state->on_enter != NULL) {
         state->on_enter(state);
     }
+#ifdef __EMSCRIPTEN__
+    extern unsigned direct_scene_kind_value;
+    direct_scene_kind_value=state->info.scene_kind;
+    extern unsigned direct_present_hook(unsigned,unsigned,unsigned);
+    direct_present_hook(17,(unsigned)state,0);
+#endif
     info = &state->info;
     scene =
         (GameScene*) ((uintptr_t) gm_FindGameSceneHandler(info->scene_kind) |
@@ -263,6 +269,10 @@ void gm_SetPendingGameMode(u8 pending_mode)
 
 void gm_ChangeGameModeAfterCurrentScene(int pending_mode)
 {
+#ifdef __EMSCRIPTEN__
+    extern int direct_route(int);
+    pending_mode=direct_route(pending_mode);
+#endif
     state_machine.routing.pending_mode = pending_mode;
     state_machine.pending_mode_change = true;
 }
@@ -331,6 +341,10 @@ u8 runGameMode(u8 mode_kind)
     if (mode->on_load != NULL) {
         mode->on_load();
     }
+#ifdef __EMSCRIPTEN__
+    extern void direct_mode_loaded(int);
+    direct_mode_loaded(mode_kind);
+#endif
     while (!sm->pending_mode_change) {
         if (state_machine.get_override != NULL &&
             (override = state_machine.get_override(), override != GM_COUNT))
@@ -389,3 +403,7 @@ void gm_801A4510(void)
         gamestate->routing.curr_mode = next_mode;
     }
 }
+
+#ifdef __EMSCRIPTEN__
+unsigned direct_global_80479d30(void){return (unsigned)&state_machine;}
+#endif

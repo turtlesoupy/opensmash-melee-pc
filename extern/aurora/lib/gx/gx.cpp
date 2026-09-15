@@ -584,12 +584,17 @@ void initialize() noexcept {
         gfx::detail::resources().staticBindGroupLayout,
         gfx::detail::resources().uniformBindGroupLayout,
         sTextureBindGroupLayout,
+#ifdef __EMSCRIPTEN__
+        gfx::detail::resources().uniformBindGroupLayout,
+#endif
     };
     const wgpu::PipelineLayoutDescriptor desc{
         .label = "GX Pipeline Layout",
         .bindGroupLayoutCount = layouts.size(),
         .bindGroupLayouts = layouts.data(),
+#ifndef __EMSCRIPTEN__
         .immediateSize = sizeof(DrawImmediateData),
+#endif
     };
     sPipelineLayout = g_device.CreatePipelineLayout(&desc);
   }

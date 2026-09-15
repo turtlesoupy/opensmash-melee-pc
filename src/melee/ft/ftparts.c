@@ -228,6 +228,10 @@ void ftPartsSetupSharedVtxMtx(HSD_PObj* pobj, MtxPtr vmtx, MtxPtr pmtx,
 void ftPartsSetupEnvelopeMtx(HSD_PObj* pobj, MtxPtr vmtx, MtxPtr pmtx,
                              u32 rendermode)
 {
+#ifdef __EMSCRIPTEN__
+    extern int direct_skin(HSD_PObj*,MtxPtr,MtxPtr);
+    if(direct_skin(pobj,vmtx,ft_jobj_scale.has_z_scale?ft_jobj_scale.mtx:NULL))return;
+#endif
     HSD_JObj* jobj;           // r23
     HSD_SList* envelope_list; // r22
     int i;                    // r21

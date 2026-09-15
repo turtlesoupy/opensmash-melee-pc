@@ -1,3 +1,14 @@
+#ifdef __EMSCRIPTEN__
+extern const char* direct_css_name(unsigned,unsigned);
+#else
+#define direct_css_name(f,p) gm_80160980(f)
+#endif
+#ifndef __EMSCRIPTEN__
+#define opensmash_original_mnCharSel_CursorThink mnCharSel_CursorThink
+#endif
+#ifndef __EMSCRIPTEN__
+#define opensmash_original_mnCharSel_Scene_OnExit mnCharSel_Scene_OnExit
+#endif
 #include "mncharsel.h"
 
 #include <melee/ft/forward.h>
@@ -960,6 +971,11 @@ static inline HSD_JObj* animateJointLeadingPad(HSD_JObj* root, u8 joint,
 
 void mnCharSel_8025D5AC(int door, int frame, bool hidden)
 {
+#ifdef __EMSCRIPTEN__
+ extern unsigned direct_present_hook(unsigned,unsigned,unsigned);
+ direct_present_hook(12,door,0);
+#endif
+
     HSD_JObj* sp5C;
     HSD_JObj* sp58;
     HSD_JObj* sp54;
@@ -1212,7 +1228,7 @@ void mnCharSel_8025DB34(u8 arg0)
         } else {
             HSD_SisLib_803A70A0(
                 mnCharSel_803F0E8C[arg0].data->text, 0,
-                (char*) gm_80160980(icons[sel_icon].char_kind));
+                (char*) direct_css_name(icons[sel_icon].char_kind,arg0));
         }
     }
 
@@ -2362,7 +2378,7 @@ static inline void cycleTeam(struct CSSCursorData* cursor, CSSDoor* dp, s32 di)
     }
 }
 
-void mnCharSel_CursorThink(HSD_GObj* gobj)
+void opensmash_original_mnCharSel_CursorThink(HSD_GObj* gobj)
 {
     HSD_JObj* sp98;
     UNUSED u8 unk94[4];
@@ -4180,6 +4196,11 @@ static const GXColor mnCharSel_804DC594 = { 220, 0, 0, 255 };
 
 s32 mnCharSel_802640A0(void)
 {
+#ifdef __EMSCRIPTEN__
+ extern unsigned direct_present_hook(unsigned,unsigned,unsigned);
+ direct_present_hook(9,0,0);
+#endif
+
     HSD_JObj* sp108;
     UNUSED u8 unkF8[16];
     Point3d spEC;
@@ -5373,6 +5394,9 @@ void mnCharSel_Scene_OnEnter(void* arg0)
 
 void mnCharSel_Scene_OnFrame(void)
 {
+#ifdef __EMSCRIPTEN__
+    extern int direct_skip_css(void);if(direct_skip_css())mnCharSel_804D6CF6=1;
+#endif
     int num_slots;
     u8 slot_type;
     struct GameCache* cache;
@@ -5489,7 +5513,7 @@ void mnCharSel_Scene_OnFrame(void)
     }
 }
 
-void mnCharSel_Scene_OnExit(void* unused)
+void opensmash_original_mnCharSel_Scene_OnExit(void* unused)
 {
     int num_slots;
     u64 tmp;
@@ -5547,3 +5571,33 @@ void mnCharSel_Scene_OnExit(void* unused)
     lbAudioAx_8002702C(4, tmp);
     lbAudioAx_80027168();
 }
+
+#ifdef __EMSCRIPTEN__
+unsigned direct_global_803f0b24(void){return (unsigned)&icons;}
+unsigned direct_global_803f0dfc(void){return (unsigned)&mnCharSel_803F0DFC;}
+unsigned direct_global_804a0bd0(void){return (unsigned)&mnCharSel_804A0BD0;}
+unsigned direct_global_804d6cb0(void){return (unsigned)&mnCharSel_804D6CB0;}
+unsigned direct_global_804d6cbc(void){return (unsigned)&mnCharSel_804D6CBC;}
+unsigned direct_global_804d6cc0(void){return (unsigned)&mnCharSel_804D6CC0;}
+unsigned direct_global_804d6cd0(void){return (unsigned)&mnCharSel_804D6CD0;}
+unsigned direct_global_804d6cf0(void){return (unsigned)&mnCharSel_804D6CF0;}
+unsigned direct_global_804d6cf1(void){return (unsigned)&mnCharSel_804D6CF1;}
+unsigned direct_global_804d6cf5(void){return (unsigned)&mnCharSel_804D6CF5;}
+unsigned direct_global_804d6cf6(void){return (unsigned)&mnCharSel_804D6CF6;}
+#endif
+
+#ifdef __EMSCRIPTEN__
+void mnCharSel_Scene_OnExit(void* unused){extern unsigned direct_present_hook(unsigned,unsigned,unsigned);
+direct_present_hook(10,0,0);
+opensmash_original_mnCharSel_Scene_OnExit(unused);
+direct_present_hook(11,0,0);
+}
+#endif
+
+#ifdef __EMSCRIPTEN__
+void mnCharSel_CursorThink(HSD_GObj* gobj){extern unsigned direct_present_hook(unsigned,unsigned,unsigned);
+direct_present_hook(13,(unsigned)gobj,0);
+opensmash_original_mnCharSel_CursorThink(gobj);
+direct_present_hook(14,0,0);
+}
+#endif

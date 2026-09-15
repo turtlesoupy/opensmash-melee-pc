@@ -1,5 +1,15 @@
 # melee-pc
 
+## OpenSmash browser fork
+
+This fork adds the OpenSmash browser platform to
+[999sian/melee-pc](https://github.com/999sian/melee-pc), preserving its Git history.
+The `opensmash/browser` branch is consumed by an exact revision pin in OpenSmash.
+See [browser build and upstream sync instructions](platforms/browser/README.md)
+and [validation results](platforms/browser/validation/README.md).
+
+## Upstream project
+
 **Beta, for testing only.** "melee-pc" is a working name. Online play with
 rollback netcode is planned and **not implemented yet**.
 

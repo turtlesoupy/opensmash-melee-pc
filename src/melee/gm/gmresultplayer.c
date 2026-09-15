@@ -1318,6 +1318,10 @@ void fn_80179350(HSD_GObj* arg0)
         }
     }
     fn_80179350_update(data, match_end, arg0);
+#ifdef __EMSCRIPTEN__
+    extern unsigned direct_present_hook(unsigned,unsigned,unsigned);
+    direct_present_hook(3,(unsigned)arg0,0);
+#endif
 
     if ((u32) data->x8 < (u32) -1) {
         data->x8++;

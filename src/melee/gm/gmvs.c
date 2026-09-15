@@ -1558,6 +1558,11 @@ void fn_8016D634(void)
 
 void gm_Scene_Vs_OnFrame(void)
 {
+#ifdef __EMSCRIPTEN__
+ extern unsigned direct_present_hook(unsigned,unsigned,unsigned);
+ direct_present_hook(20,0,0);
+#endif
+
     PAD_STACK(8);
     if (controller.start.on_frame_start != NULL) {
         controller.start.on_frame_start();
@@ -1585,6 +1590,9 @@ void gm_Scene_Vs_OnFrame(void)
 
 void fn_8016D8AC(int arg0, struct PlayerInitData* arg1)
 {
+#ifdef __EMSCRIPTEN__
+    extern void direct_player_init(int,struct PlayerInitData*);direct_player_init(arg0,arg1);
+#endif
     VsSceneController* tmp = gmVs_GetSceneController();
     PAD_STACK(4);
 

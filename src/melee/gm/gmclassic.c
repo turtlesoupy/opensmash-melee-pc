@@ -1091,3 +1091,7 @@ void gmClassic_801B3F18(GameModeState* scene)
     gm_SetPendingGameMode(GM_MENU);
     gm_SetNewGameModePending();
 }
+
+#ifdef __EMSCRIPTEN__
+unsigned direct_global_80490880(void){return (unsigned)&gmClassicIntroDataBuffer;}
+#endif

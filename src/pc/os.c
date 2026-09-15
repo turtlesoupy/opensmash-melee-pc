@@ -28,7 +28,20 @@
 #endif
 #endif
 
+#ifdef __EMSCRIPTEN__
+static pthread_mutex_t s_intr_mutex;
+static pthread_once_t s_intr_once = PTHREAD_ONCE_INIT;
+static void init_intr_mutex(void)
+{
+    pthread_mutexattr_t attr;
+    pthread_mutexattr_init(&attr);
+    pthread_mutexattr_settype(&attr, PTHREAD_MUTEX_RECURSIVE);
+    pthread_mutex_init(&s_intr_mutex, &attr);
+    pthread_mutexattr_destroy(&attr);
+}
+#else
 static pthread_mutex_t s_intr_mutex = PTHREAD_RECURSIVE_MUTEX_INITIALIZER_NP;
+#endif
 static __thread int s_intr_depth;
 static __thread int s_is_game_thread;
 
@@ -36,6 +49,9 @@ void pc_os_run_alarms(void);
 
 BOOL OSDisableInterrupts(void)
 {
+#ifdef __EMSCRIPTEN__
+    pthread_once(&s_intr_once, init_intr_mutex);
+#endif
     pthread_mutex_lock(&s_intr_mutex);
     return s_intr_depth++ == 0;
 }
@@ -196,6 +212,12 @@ void pc_os_run_alarms(void)
     }
     OSRestoreInterrupts(intr);
     card_deliver();
+#ifdef __EMSCRIPTEN__
+    extern void browser_disc_deliver(void);
+    browser_disc_deliver();
+    extern void browser_arq_deliver(void);
+    browser_arq_deliver();
+#endif
 }
 
 /* ---- memory card completions ------------------------------------------ */

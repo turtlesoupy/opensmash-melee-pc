@@ -1132,7 +1132,7 @@ void initialize_pipeline_cache() {
   if (webgpu::g_backendType == wgpu::BackendType::WebGPU) {
     g_hasPipelineThread = false;
   } else {
-#if defined(__ANDROID__)
+#if defined(__ANDROID__) || defined(__EMSCRIPTEN__)
     // On Android, background worker thread floods mobile GPU drivers (e.g. Adreno
     // libllvm-qglc.so) during asset extraction and menu initialization with unthrottled
     // vkCreateGraphicsPipelines, leading to driver crashes or memory exhaustion.

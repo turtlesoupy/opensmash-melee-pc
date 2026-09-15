@@ -223,21 +223,41 @@ void fn_80179990(HSD_GObj* arg0, int arg1, int arg2)
 
 void fn_80179D3C(HSD_GObj* gobj, int arg1)
 {
+#ifdef __EMSCRIPTEN__
+ extern unsigned direct_present_hook(unsigned,unsigned,unsigned);
+ direct_present_hook(4,(unsigned)gobj,0);
+#endif
+
     fn_80179990(gobj, arg1, 0);
 }
 
 void fn_80179D60(HSD_GObj* gobj, int arg1)
 {
+#ifdef __EMSCRIPTEN__
+ extern unsigned direct_present_hook(unsigned,unsigned,unsigned);
+ direct_present_hook(4,(unsigned)gobj,1);
+#endif
+
     fn_80179990(gobj, arg1, 1);
 }
 
 void fn_80179D84(HSD_GObj* gobj, int arg1)
 {
+#ifdef __EMSCRIPTEN__
+ extern unsigned direct_present_hook(unsigned,unsigned,unsigned);
+ direct_present_hook(4,(unsigned)gobj,2);
+#endif
+
     fn_80179990(gobj, arg1, 2);
 }
 
 void fn_80179DA8(HSD_GObj* gobj, int arg1)
 {
+#ifdef __EMSCRIPTEN__
+ extern unsigned direct_present_hook(unsigned,unsigned,unsigned);
+ direct_present_hook(4,(unsigned)gobj,3);
+#endif
+
     fn_80179990(gobj, arg1, 3);
 }
 
@@ -643,3 +663,8 @@ void fn_8017AA78(const u8* arg0)
         lbl_8046E3AC.x22F4[i] = gmResultX22F4Init[i];
     }
 }
+
+#ifdef __EMSCRIPTEN__
+unsigned direct_global_8046e1b0(void){return (unsigned)&lbl_8046E1B0;}
+unsigned direct_global_8046e3ac(void){return (unsigned)&lbl_8046E3AC;}
+#endif

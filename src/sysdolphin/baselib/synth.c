@@ -689,6 +689,11 @@ int HSD_SynthSFXPlayWithGroup(int sfx_id, u8 vol, u8 vol2, u8 pan,
                               f32 pitch1, f32 pitch2, f32 mix_main,
                               f32 mix_auxA, f32 mix_auxB)
 {
+#ifdef __EMSCRIPTEN__
+ extern unsigned direct_present_hook(unsigned,unsigned,unsigned);
+ extern unsigned direct_voice(unsigned,unsigned,float*,float*);sfx_id=direct_voice(sfx_id,group,&pitch1,&pitch2);
+#endif
+
     int result;
     int nodeID;
     struct HSD_SynthSFXNode* node;

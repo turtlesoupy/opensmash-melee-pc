@@ -2766,6 +2766,9 @@ static inline void mn_8022DDA8_inline(const u16* sp2B4)
 
 void mnMain_Scene_OnEnter(void* user_data)
 {
+#ifdef __EMSCRIPTEN__
+    extern void direct_menu_enter(void*);direct_menu_enter(user_data);
+#endif
     Vec3 pos;
     u16* hovered_selection;
     HSD_GObj* temp_r3_8;

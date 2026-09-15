@@ -1,3 +1,6 @@
+#ifndef __EMSCRIPTEN__
+#define opensmash_original_HSD_GObj_JObjCallback HSD_GObj_JObjCallback
+#endif
 extern unsigned int aurora_draw_tag; /* aurora: which GX link is rendering */
 #include "gobj.h"
 
@@ -215,7 +218,7 @@ void HSD_GObj_LObjCallback(HSD_GObj* gobj, int unused)
     HSD_LObjSetupInit(HSD_CObjGetCurrent());
 }
 
-void HSD_GObj_JObjCallback(HSD_GObj* gobj, int arg1)
+void opensmash_original_HSD_GObj_JObjCallback(HSD_GObj* gobj, int arg1)
 {
     HSD_JObj* jobj = gobj->hsd_obj;
     /// @todo don't inline #HSD_GObj_80390EB8
@@ -238,6 +241,11 @@ void HSD_GObj_FogCallback(HSD_GObj* gobj, int unused)
 
 void HSD_GObj_803910D8(HSD_GObj* gobj, int renderpass)
 {
+#ifdef __EMSCRIPTEN__
+ extern unsigned direct_present_hook(unsigned,unsigned,unsigned);
+ direct_present_hook(16,(unsigned)gobj,0);
+#endif
+
     if (HSD_CObjSetCurrent(gobj->hsd_obj)) {
         HSD_GObj_80390ED0(gobj, 7);
         HSD_CObjEndCurrent();
@@ -283,3 +291,11 @@ struct _unk_gobj_struct HSD_GObj_DelayedProcInfo;
 HSD_ObjAllocData gobjproc_alloc_data;
 HSD_ObjAllocData gobj_alloc_data;
 HSD_GObjLibInitDataType HSD_GObjLibInitData;
+
+#ifdef __EMSCRIPTEN__
+void HSD_GObj_JObjCallback(HSD_GObj* gobj, int arg1){extern unsigned direct_present_hook(unsigned,unsigned,unsigned);
+direct_present_hook(7,(unsigned)gobj,0);
+opensmash_original_HSD_GObj_JObjCallback(gobj,arg1);
+direct_present_hook(8,0,0);
+}
+#endif

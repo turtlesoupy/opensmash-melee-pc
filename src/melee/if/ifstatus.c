@@ -650,6 +650,11 @@ static inline IfDamageState* getPlayerByNext(HSD_GObj* gobj)
 
 void ifStatus_802F5E50(HSD_GObj* gobj, s32 arg1)
 {
+#ifdef __EMSCRIPTEN__
+ extern unsigned direct_present_hook(unsigned,unsigned,unsigned);
+ direct_present_hook(2,(unsigned)gobj,0);
+#endif
+
     IfDamageState* player = getPlayerByNext(gobj);
     if (!player->flags.hide_all_digits) {
         HSD_GObj_JObjCallback(gobj, arg1);
@@ -1048,3 +1053,7 @@ void ifStatus_802F6E3C(s32 player_num)
     }
     ifStock_802FB6AC(player_num);
 }
+
+#ifdef __EMSCRIPTEN__
+unsigned direct_global_804a10c8(void){return (unsigned)&ifStatus_HudInfo;}
+#endif

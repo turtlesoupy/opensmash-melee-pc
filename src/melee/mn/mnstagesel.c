@@ -455,6 +455,9 @@ static inline HSD_JObj* get_jobj(HSD_GObj* gobj)
 
 void mnStageSel_Scene_OnEnter(void* arg0)
 {
+#ifdef __EMSCRIPTEN__
+    extern int direct_forced_stage(void);int forced=direct_forced_stage();if(forced>=0)((SSSData*)arg0)->force_stage_id=forced;
+#endif
     HSD_JObj* spDC[0x13];
     u8 _[0xDC - 0xD8];
     Vec3 spCC;

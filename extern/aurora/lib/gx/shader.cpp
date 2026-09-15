@@ -1690,7 +1690,7 @@ std::string build_shader_source(const ShaderConfig& config) noexcept {
                               UseReversedZ ? "1.0 - f32(zt_z) / 16777215.0" : "f32(zt_z) / 16777215.0");
   }
 
-  const auto shaderSource = fmt::format(R"""(
+  auto shaderSource = fmt::format(R"""(
 fn bswap32(v: u32, le: bool) -> u32 {{
   if (le) {{
     return v;
@@ -2065,6 +2065,11 @@ fn fs_main(in: VertexOutput) -> {10} {{{6}{5}{11}
     Log.info("Generated shader (hash {:x}): {}", hash, shaderSource);
   }
 
+#ifdef __EMSCRIPTEN__
+  const std::string needle="var<immediate> imm: Immediate;";
+  if(auto at=shaderSource.find(needle);at!=std::string::npos)
+    shaderSource.replace(at,needle.size(),"@group(3) @binding(0) var<uniform> imm: Immediate;");
+#endif
   return shaderSource;
 }
 

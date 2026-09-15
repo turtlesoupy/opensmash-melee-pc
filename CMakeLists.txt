@@ -6,6 +6,11 @@ endif ()
 
 project(melee-pc LANGUAGES C CXX)
 
+if(EMSCRIPTEN)
+    add_subdirectory(platforms/browser)
+    return()
+endif()
+
 if (NOT CMAKE_C_COMPILER_ID STREQUAL "GNU" AND NOT ANDROID)
     # Game code relies on __attribute__((scalar_storage_order("big-endian"))) for
     # on-disc structures, which only GCC implements (C only).

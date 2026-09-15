@@ -1213,6 +1213,10 @@ static void SetupEnvelopeModelMtx(HSD_PObj* pobj, Mtx vmtx, Mtx pmtx,
 
 static void PObjSetupMtx(HSD_PObj* pobj, Mtx vmtx, Mtx pmtx, u32 rendermode)
 {
+#ifdef __EMSCRIPTEN__
+    extern int direct_skin(HSD_PObj*,MtxPtr,MtxPtr);
+    if(direct_skin(pobj,vmtx,NULL))return;
+#endif
     switch (pobj_type(pobj)) {
     case POBJ_SKIN:
         if (!pobj->u.jobj) {

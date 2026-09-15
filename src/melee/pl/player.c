@@ -2099,3 +2099,7 @@ void Player_80037054(s32 slot, s32 arg1)
         player->player_entity[1] = ftDemo_CreateFighter(&some_struct);
     }
 }
+
+#ifdef __EMSCRIPTEN__
+unsigned direct_global_80453080(void){return (unsigned)&player_slots;}
+#endif

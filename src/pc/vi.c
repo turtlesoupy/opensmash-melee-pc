@@ -13,6 +13,10 @@
 
 #include <SDL3/SDL_timer.h>
 
+#ifdef __EMSCRIPTEN__
+#include <emscripten.h>
+extern void browser_yield(void);
+#endif
 #include <stdio.h>
 #include <stdlib.h>
 
@@ -52,6 +56,10 @@ void pc_frame_boundary(void)
         aurora_end_frame();
         s_in_frame = false;
     }
+#ifdef __EMSCRIPTEN__
+    extern void pc_audio_pump(void);
+    pc_audio_pump();
+#endif
     aurora_heap_check(); /* no-op unless MELEE_HEAP_CHECK is set */
     pc_widescreen_update(); /* Auto mode follows window resizes. */
     if (fps_log < 0) {
@@ -101,6 +109,7 @@ void pc_frame_boundary(void)
     }
 
     const AuroraEvent* event = aurora_update();
+
     while (event != NULL && event->type != AURORA_NONE) {
         if (event->type == AURORA_EXIT) {
             pc_exit_requested = true;
@@ -118,6 +127,11 @@ void pc_frame_boundary(void)
      * frame instead of clearing the EFB to black underneath the menu. */
     aurora_preserve_frame_buffer(pc_menu_is_open());
     pc_keyboard_apply();
+#ifdef __EMSCRIPTEN__
+    extern void browser_apply_input(void);
+    browser_apply_input();
+#endif
+
     if (pc_exit_requested) {
         exit(0);
     }
@@ -127,6 +141,9 @@ void pc_frame_boundary(void)
      * via SDL_DelayPrecise when Vsync is disabled or unavailable; running
      * software sleep while hardware Vsync is active causes timing drift and
      * missed VBlank deadlines (tripping sudden drops to 30 FPS). */
+    #ifdef __EMSCRIPTEN__
+    {static double next;double now=emscripten_get_now();if(next<now-100)next=now;next+=1000.0/60.0;if(next>now)emscripten_sleep((unsigned)(next-now));else browser_yield();}
+    #endif
     if (!aurora_vsync_enabled()) {
         static u64 next_ns;
         const u64 period = 1000000000ull / 60;
@@ -149,7 +166,9 @@ void pc_frame_boundary(void)
     /* aurora_begin_frame returns false while minimized/paused; keep pumping.
      * Sleep a frame between attempts: without it a minimized window spins a
      * core at 100% polling SDL. */
+
     while (!aurora_begin_frame()) {
+
         event = aurora_update();
         while (event != NULL && event->type != AURORA_NONE) {
             if (event->type == AURORA_EXIT) {
@@ -157,11 +176,19 @@ void pc_frame_boundary(void)
             }
             ++event;
         }
+#ifdef __EMSCRIPTEN__
+        emscripten_sleep(16);
+#else
         SDL_Delay(16);
+#endif
     }
+
     s_in_frame = true;
 
     s_retrace_count++;
+#ifdef __EMSCRIPTEN__
+    EM_ASM({if(Module.onFrame)Module.onFrame($0);},s_retrace_count);
+#endif
     pc_os_run_alarms();
     if (s_pre_cb) {
         s_pre_cb(s_retrace_count);
@@ -236,3 +263,6 @@ u16 VIPadFrameBufferWidth(u16 width)
 {
     return (u16) ((width + 15) & ~15);
 }
+#ifdef __EMSCRIPTEN__
+unsigned direct_global_804d7420(void){return (unsigned)&s_retrace_count;}
+#endif

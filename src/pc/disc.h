@@ -52,17 +52,23 @@ void pc_disc_ptr_overflow(const void* p, const char* file, int line) __attribute
 static inline uint32_t pc_encode_dp(const void* p)
 {
     if (!p) return 0;
+    #if UINTPTR_MAX <= UINT32_MAX
+    return (uint32_t)(uintptr_t)p;
+    #else
     if (!((uintptr_t) p >> 32)) {
         return (uint32_t) (uintptr_t) p;
     }
     return 0x02000000u | pc_register_ext_ptr(p);
+    #endif
 }
 
 static inline void* pc_resolve_dp(uint32_t slot)
 {
+    #if UINTPTR_MAX > UINT32_MAX
     if ((slot & 0xFF000000u) == 0x02000000u) {
         return pc_resolve_ext_ptr(slot & 0x00FFFFFFu);
     }
+    #endif
     return (void*) (uintptr_t) slot;
 }
 
@@ -70,7 +76,11 @@ static inline void* pc_resolve_dp(uint32_t slot)
 }
 #endif
 
+#ifdef OPENSMASH_DISC_LOWERING
+#define DISC_STRUCT __attribute__((annotate("opensmash_disc")))
+#else
 #define DISC_STRUCT __attribute__((scalar_storage_order("big-endian")))
+#endif
 #define DISC_PTR(T) uint32_t
 #define DP(T, slot) ((T*) pc_resolve_dp((uint32_t) (slot)))
 #define DP_SET(slot, p) do { (slot) = pc_encode_dp((const void*) (p)); } while (0)

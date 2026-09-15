@@ -1,3 +1,9 @@
+#ifdef __EMSCRIPTEN__
+extern void direct_flash(unsigned, unsigned, unsigned);
+#define browser_flash direct_flash
+#else
+#define browser_flash(kind, object, result) ((void)0)
+#endif
 #include "efasync.h"
 
 #include <math.h>
@@ -184,7 +190,9 @@ void* efAsync_Dispatch(s32 gfx_id, HSD_GObj* gobj, va_list vlist)
                                                             f32_1);
         break;
     case 0x3F3:
+        browser_flash(gfx_id, (unsigned)gobj, 0);
         ret_obj = efLib_CreateGenerator(0xB, va_arg(vlist, Vec3*));
+        browser_flash(gfx_id, 0, (unsigned)ret_obj);
         break;
     case 0x3F4:
         ret_obj = efLib_CreateGenerator(0x48, va_arg(vlist, Vec3*));
@@ -253,11 +261,13 @@ void* efAsync_Dispatch(s32 gfx_id, HSD_GObj* gobj, va_list vlist)
         }
         break;
     case 0x3FE:
+        browser_flash(gfx_id, (unsigned)gobj, 0);
         va_vec3 = va_arg(vlist, Vec3*);
         translate = *va_vec3;
         f32_1 = *va_arg(vlist, f32*);
         ret_obj = efLib_CreateGenerator_Translate_FacingDir(0x107, &translate,
                                                             f32_1);
+        browser_flash(gfx_id, 0, (unsigned)ret_obj);
         break;
     case 0x3FF:
         ret_obj = efLib_Create_Attach_Pos(5, gobj, va_arg(vlist, Vec3*));

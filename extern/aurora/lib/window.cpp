@@ -33,7 +33,9 @@ extern "C" void Android_UnlockActivityMutex(void);
 #include <string>
 #include <vector>
 
+#ifdef AURORA_ENABLE_RMLUI
 #include "rmlui.hpp"
+#endif
 #include "time_internal.hpp"
 #include "dolphin/vi/vi_internal.hpp"
 

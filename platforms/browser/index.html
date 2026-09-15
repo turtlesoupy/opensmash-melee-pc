@@ -1,0 +1,13 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>OpenSmash upstream browser validation</title>
+<style>body{background:#111;color:#eee;font:16px system-ui}canvas{display:block;width:960px;max-width:100%;height:auto}pre{white-space:pre-wrap}</style>
+<h1>OpenSmash upstream browser validation</h1>
+<input id="disc" type="file" accept=".iso,.gcm"><button id="start" disabled>Start Melee</button>
+<canvas id="canvas" width="960" height="720"></canvas><pre id="log"></pre>
+<script>
+const logs=[];function log(...s){logs.push(s.join(' '));document.querySelector('#log').textContent=logs.slice(-60).join('\n');console.log(...s)}
+window.frameSamples=[];window.lastCombatFrame=0;window.warmFrames=0;
+var Module={onFrame(frame){const now=performance.now();if(Module._opensmash_preparation_state?.()===2){window.preparationTimes??=[];if(window.preparationStamp)window.preparationTimes.push(now-window.preparationStamp);window.preparationStamp=now;if(window.preparationTimes.length>30)window.preparationTimes.shift();if(window.preparationTimes.length===30&&window.preparationTimes.every(t=>t<40))Module._opensmash_finish_preparation();}if(Module._opensmash_intro_state?.()===1&&++window.warmFrames>30)Module._opensmash_finish_intro_preparation();if(Module._direct_scene_kind()===2&&![1,2].includes(Module._opensmash_intro_state())){if(window.lastCombatFrame)window.frameSamples.push({frame,time:now,dt:now-window.lastCombatFrame});window.lastCombatFrame=now;}else window.lastCombatFrame=0;},canvas:document.querySelector('#canvas'),print:log,printErr:log,onRuntimeInitialized(){document.querySelector('#start').disabled=false;}};
+document.querySelector('#start').onclick=async()=>{Module.discFile=document.querySelector('#disc').files[0];if(!Module.discFile)return;document.querySelector('#start').disabled=true;const fixture=new URLSearchParams(location.search).get('fixture');if(fixture){const names=await(await fetch('/fixtures/'+fixture+'/manifest.json')).json();for(const name of names){const bytes=new Uint8Array(await(await fetch('/fixtures/'+fixture+'/'+name)).arrayBuffer());Module.FS.mkdirTree('/mod/'+name.split('/').slice(0,-1).join('/'));Module.FS.writeFile('/mod/'+name,bytes);}}if(new URLSearchParams(location.search).get('mode')==='vs')Module._direct_configure(...(window.directLaunch||[0,31,9,4,8,257,258,768,768]));Module.readDisc=(await import('./disc-cache.mjs')).createDiscCache(Module.discFile).read;Module.callMain([])};
+</script><script src="melee_browser.js"></script>

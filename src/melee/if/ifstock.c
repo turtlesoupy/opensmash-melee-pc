@@ -478,6 +478,11 @@ void fn_802F9410(HSD_GObj* gobj)
 
 void fn_802F94E0(HSD_GObj* gobj, int renderpass)
 {
+#ifdef __EMSCRIPTEN__
+ extern unsigned direct_present_hook(unsigned,unsigned,unsigned);
+ direct_present_hook(1,(unsigned)gobj,0);
+#endif
+
     struct IfStockUserData* p = GET_IFSTOCK(gobj);
     struct HudIndex* x = ifStatus_GetHUDInfo();
     if (!x->players[p->player].flags.hide_all_digits) {
@@ -1115,3 +1120,7 @@ void ifStock_802FB6AC(int player)
         HSD_GObj_80390CAC(x->player[player].x0);
     }
 }
+
+#ifdef __EMSCRIPTEN__
+unsigned direct_global_804a1378(void){return (unsigned)&ifStock_804A1378;}
+#endif

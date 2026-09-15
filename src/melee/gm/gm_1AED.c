@@ -244,6 +244,14 @@ void gm_801AF250(void)
 
 void gm_Scene_MemCard_OnFrame(void)
 {
+#ifdef __EMSCRIPTEN__
+    /* Match the browser launcher: accept creation of a new save. */
+    if (gm_80480DA8.unk14 == 5 || gm_80480DA8.unk14 == 7) {
+        gm_80480DA8.unk1C = 0;
+        for (int p = 0; p < 4; p++)
+            HSD_PadCopyStatus[p].trigger |= HSD_PAD_A;
+    }
+#endif
     int temp_r29;
     u8 _[0x14];
 

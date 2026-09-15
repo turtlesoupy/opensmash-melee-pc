@@ -1844,3 +1844,7 @@ void gm_Scene_Results_OnExit(void* unused)
 {
     fn_801701AC();
 }
+
+#ifdef __EMSCRIPTEN__
+unsigned direct_global_8046dbe8(void){return (unsigned)&lbl_8046DBE8;}
+#endif

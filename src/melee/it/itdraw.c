@@ -1,3 +1,6 @@
+#ifndef __EMSCRIPTEN__
+#define opensmash_original_it_8026EECC it_8026EECC
+#endif
 #include "itdraw.h"
 
 #include "inlines.h"
@@ -249,7 +252,7 @@ static inline void it_8026EECC_inline_sw(HSD_GObj* gobj, s32 arg1, Vec3* pos)
     }
 }
 
-void it_8026EECC(HSD_GObj* gobj, int arg1)
+void opensmash_original_it_8026EECC(HSD_GObj* gobj, int arg1)
 {
     Item* ip = GET_ITEM(gobj);
     Vec3 pos;
@@ -273,3 +276,11 @@ void it_8026EECC(HSD_GObj* gobj, int arg1)
         HSD_ClearVtxDesc();
     }
 }
+
+#ifdef __EMSCRIPTEN__
+void it_8026EECC(HSD_GObj* gobj, int arg1){extern unsigned direct_present_hook(unsigned,unsigned,unsigned);
+direct_present_hook(5,(unsigned)gobj,0);
+opensmash_original_it_8026EECC(gobj,arg1);
+direct_present_hook(6,0,0);
+}
+#endif

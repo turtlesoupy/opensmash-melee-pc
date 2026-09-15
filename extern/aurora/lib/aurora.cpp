@@ -389,7 +389,12 @@ void end_frame() noexcept {
       {
         window::SurfaceLock surfaceLock;
         if (window::is_presentable()) {
+#ifdef __EMSCRIPTEN__
+          // The browser presents the canvas when control returns to its event loop.
+          status = wgpu::Status::Success;
+#else
           status = g_surface.Present();
+#endif
         }
       }
       if (status) {

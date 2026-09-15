@@ -1373,3 +1373,7 @@ void gmMainLib_8015FCC0(void)
     tmp->xC = 0;
     tmp->x10 = lbTime_GetTimeInSeconds();
 }
+
+#ifdef __EMSCRIPTEN__
+unsigned direct_global_804d3ee0(void){return (unsigned)&gmMainLib_804D3EE0;}
+#endif

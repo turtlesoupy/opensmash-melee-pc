@@ -1,3 +1,6 @@
+#ifndef __EMSCRIPTEN__
+#define opensmash_original_it_802A7D8C it_802A7D8C
+#endif
 #include "itlinkarrow.h"
 
 #include <math.h>
@@ -52,7 +55,7 @@ ItemStateTable it_803F6A28[5] = {
       itLinkarrow_UnkMotion4_Coll },
 };
 
-void it_802A7D8C(HSD_GObj* gobj, int arg1)
+void opensmash_original_it_802A7D8C(HSD_GObj* gobj, int arg1)
 {
     Item* item;
 
@@ -879,3 +882,11 @@ void itLinkArrow_Logic98_EvtUnk(Item_GObj* gobj, Item_GObj* arg1)
 {
     it_8026B894(gobj, arg1);
 }
+
+#ifdef __EMSCRIPTEN__
+void it_802A7D8C(HSD_GObj* gobj, int arg1){extern unsigned direct_present_hook(unsigned,unsigned,unsigned);
+direct_present_hook(5,(unsigned)gobj,0);
+opensmash_original_it_802A7D8C(gobj,arg1);
+direct_present_hook(6,0,0);
+}
+#endif

@@ -1446,3 +1446,7 @@ static void CObjInfoInit(void)
     HSD_CLASS_INFO(&hsdCObj)->amnesia = CObjAmnesia;
     hsdCObj.load = CObjLoad;
 }
+
+#ifdef __EMSCRIPTEN__
+unsigned direct_global_804d765c(void){return (unsigned)&current;}
+#endif

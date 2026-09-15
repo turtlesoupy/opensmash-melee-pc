@@ -834,6 +834,11 @@ void gm_80160C90(HSD_Text* text, u8 fighter_id, u8 arg2)
 void fn_80160DE8(HSD_JObj* arg0, u8 arg1, s32 arg2, u8 arg3, f32 farg0,
                  f32 farg1)
 {
+#ifdef __EMSCRIPTEN__
+ extern unsigned direct_present_hook(unsigned,unsigned,unsigned);
+ extern void direct_intro_name(unsigned,unsigned);direct_intro_name((unsigned)arg0,arg1);
+#endif
+
     HSD_Text* tmp_text = (HSD_Text*) arg0;
     u8 tmp_ckind = arg1;
     const char* str;
@@ -3980,6 +3985,11 @@ float gm_80168BF8(int arg0)
 
 void gm_80168C5C(u32 arg0)
 {
+#ifdef __EMSCRIPTEN__
+ extern unsigned direct_present_hook(unsigned,unsigned,unsigned);
+ extern unsigned direct_intro_announce(unsigned);arg0=direct_intro_announce(arg0);if(arg0==~0u)return;
+#endif
+
     switch (arg0) {
     case 0:
         lbAudioAx_800243F4(0x7C830);
@@ -4119,7 +4129,12 @@ void gm_80168F88(void)
 void gm_LoadAnnouncer(void)
 {
     lbAudioAx_80026F2C(0x12);
-    lbAudioAx_8002702C(2, 0x20);
+    #ifdef __EMSCRIPTEN__
+        extern unsigned direct_intro_banks(void);
+        lbAudioAx_8002702C(2,direct_intro_banks());
+#else
+        lbAudioAx_8002702C(2, 0x20);
+#endif
     lbAudioAx_80027168();
     lbAudioAx_80027648();
 }
@@ -4255,3 +4270,14 @@ void gm_801692E8(u32 secs, datetime* datetime)
         datetime->second = tm.sec;
     }
 }
+
+#ifdef __EMSCRIPTEN__
+unsigned direct_global_803b75f8(void){return (unsigned)&lbl_803B75F8;}
+unsigned direct_global_803d4d74(void){return (unsigned)&lbl_803D4D74;}
+unsigned direct_global_803d4fdc(void){return (unsigned)&lbl_803D4FDC;}
+unsigned direct_global_803d5060(void){return (unsigned)&lbl_803D5060;}
+unsigned direct_global_803d50e4(void){return (unsigned)&lbl_803D50E4;}
+unsigned direct_global_803b767c(void){return (unsigned)&lbl_803B767C;}
+unsigned direct_global_803b7700(void){return (unsigned)&lbl_803B7700;}
+unsigned direct_global_803b7784(void){return (unsigned)&lbl_803B7784;}
+#endif

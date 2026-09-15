@@ -566,6 +566,11 @@ void HSD_JObjAnimAll(HSD_JObj* jobj)
 
 void HSD_JObjDispAll(HSD_JObj* jobj, Mtx vmtx, u32 flags, u32 rendermode)
 {
+#ifdef __EMSCRIPTEN__
+ extern unsigned direct_present_hook(unsigned,unsigned,unsigned);
+ vmtx=(MtxPtr)direct_present_hook(0,(unsigned)jobj,(unsigned)vmtx);
+#endif
+
     MtxPtr new_var = vmtx;
     if (jobj != NULL) {
         if (jobj->flags & JOBJ_INSTANCE) {

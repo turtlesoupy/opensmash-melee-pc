@@ -1,3 +1,7 @@
+#ifdef __EMSCRIPTEN__
+#include <stddef.h>
+extern "C" void browser_memory_native(void*,size_t);
+#endif
 #include <dolphin/os.h>
 
 #include <cstddef>
@@ -9,7 +13,7 @@ static inline int capture_backtrace(void** buffer, int max_frames) {
   return CaptureStackBackTrace(0, max_frames, buffer, NULL);
 }
 #define backtrace capture_backtrace
-#elif defined(__ANDROID__)
+#elif defined(__ANDROID__) || defined(__EMSCRIPTEN__)
 static inline int capture_backtrace(void** buffer, int max_frames) {
   (void)buffer;
   (void)max_frames;
@@ -476,6 +480,9 @@ OSHeapHandle OSCreateHeap(void* start, void* end) {
   if (!validateBlockRange(blockStart, blockEnd)) {
     return -1;
   }
+#ifdef __EMSCRIPTEN__
+  browser_memory_native(start,reinterpret_cast<uintptr_t>(end)-reinterpret_cast<uintptr_t>(start));
+#endif
 
   for (OSHeapHandle heap = 0; heap < sNumHeaps; ++heap) {
     auto& hd = sHeapArray[heap];
@@ -569,6 +576,9 @@ void* OSAllocFromHeap(OSHeapHandle heap, u32 size) {
     cell->size = requested;
   }
 
+#ifdef __EMSCRIPTEN__
+  browser_memory_native(reinterpret_cast<u8*>(cell)+kHeaderSize,size);
+#endif
   cell->owner = &hd;
   hd.allocated = addFront(hd.allocated, cell);
   if (sCanary) {
@@ -593,6 +603,9 @@ void OSFreeToHeap(OSHeapHandle heap, void* ptr) {
     return;
   }
 
+#ifdef __EMSCRIPTEN__
+  browser_memory_native(ptr,cell->size-kHeaderSize);
+#endif
   checkCanaries("free");
   forgetOwner(cell);
   hd.allocated = extract(hd.allocated, cell);

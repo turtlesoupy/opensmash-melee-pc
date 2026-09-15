@@ -1,0 +1,33 @@
+{
+  "date": "2026-09-15",
+  "upstream": {
+    "repository": "https://github.com/999sian/melee-pc.git",
+    "revision": "adaf840577ec24e63861d97fdf6a6a85d40e28bf",
+    "fork": "https://github.com/turtlesoupy/opensmash-melee-pc.git",
+    "branch": "opensmash/browser",
+    "emscripten": "6.0.9",
+    "llvm": "22"
+  },
+  "host": {
+    "os": "macOS-26.5.2-arm64-arm-64bit-Mach-O",
+    "cpu": "Apple M5",
+    "memoryBytes": 34359738368,
+    "chrome": "Google Chrome 152.0.7977.83"
+  },
+  "build": {
+    "gameTranslationUnits": 987,
+    "wasmBytes": 30681099,
+    "wasmSha256": "67f26970b7a4232068e6d058eb0942fdbe4584a9cd81d3433d3d80f98f62e7c5",
+    "resolution": [
+      960,
+      720
+    ],
+    "compilerOracleComparisons": 10,
+    "javascriptTests": 5,
+    "charsetTests": 2,
+    "presentationMemorySanitizers": [
+      "address",
+      "undefined"
+    ]
+  }
+}

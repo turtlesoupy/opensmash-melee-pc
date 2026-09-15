@@ -215,6 +215,11 @@ void onExitSss(GameModeState* state)
 
 void onEnterVs(GameModeState* state)
 {
+#ifdef __EMSCRIPTEN__
+ extern unsigned direct_present_hook(unsigned,unsigned,unsigned);
+ direct_present_hook(15,(unsigned)state,0);
+#endif
+
     gmVsMelee_EnterVs(state, gmVsMelee_GetVsData(), NULL, NULL);
 }
 
@@ -258,3 +263,7 @@ void onExitResults(GameModeState* state)
         gm_801623A4(&gmVsMelee_ResultsEnterData.match_end);
     }
 }
+
+#ifdef __EMSCRIPTEN__
+unsigned direct_global_803dd9a0(void){return (unsigned)&gm_Mode_Vs_States;}
+#endif

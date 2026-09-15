@@ -377,6 +377,11 @@ static char lbl_803D9444[] = "ScItrAllstar_scene_data";
 
 void fn_80184AB8(HSD_GObj* arg0)
 {
+#ifdef __EMSCRIPTEN__
+ extern unsigned direct_present_hook(unsigned,unsigned,unsigned);
+ extern int direct_intro_animation(unsigned);if(!direct_intro_animation((unsigned)arg0))return;
+#endif
+
     HSD_JObj* sp110;
     char sp10[0x100];
     HSD_JObj* jobj;
@@ -727,6 +732,11 @@ void fn_8018569C(HSD_GObj* gobj)
 
 void fn_8018575C(HSD_GObj* gobj)
 {
+#ifdef __EMSCRIPTEN__
+ extern unsigned direct_present_hook(unsigned,unsigned,unsigned);
+ direct_present_hook(16,(unsigned)gobj,0);
+#endif
+
     if (HSD_CObjSetCurrent(GET_COBJ(gobj))) {
         Camera_800313E0(gobj, 1);
         gobj->gxlink_prios = 0x1001;
@@ -1194,6 +1204,11 @@ void fn_80186634(void* arg0)
 
 void gm_Scene_IntroEasy_OnFrame(void)
 {
+#ifdef __EMSCRIPTEN__
+ extern unsigned direct_present_hook(unsigned,unsigned,unsigned);
+ direct_present_hook(18,0,0);
+#endif
+
     if (lbl_804735A8.x0 != 0) {
         lbAudioAx_800236DC();
         gm_801A4B60();
@@ -1236,3 +1251,8 @@ void gm_Scene_IntroEasy_OnEnter(void* arg0_)
     gm_80167858((int) (s8) lbl_8047368C.xEC, lbl_8047368C.xED, 0xB, 0x2D);
     gm_80168F88();
 }
+
+#ifdef __EMSCRIPTEN__
+unsigned direct_global_804735a8(void){return (unsigned)&lbl_804735A8;}
+unsigned direct_global_8047368c(void){return (unsigned)&lbl_8047368C;}
+#endif

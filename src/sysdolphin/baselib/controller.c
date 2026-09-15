@@ -593,3 +593,7 @@ void HSD_PadInit(u8 qnum, HSD_PadData* queue, u16 nb_list,
     }
     PADInit();
 }
+
+#ifdef __EMSCRIPTEN__
+unsigned direct_global_804c20bc(void){return (unsigned)&HSD_PadCopyStatus;}
+#endif

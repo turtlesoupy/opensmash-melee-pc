@@ -14,7 +14,7 @@ static inline void Locate(HSD_Archive* archive)
      * 4GB would silently truncate every pointer in it; this is the same
      * check DP_SET makes, applied to the one site that bypasses DP_SET. */
 #ifdef TARGET_PC
-    if (archive->header.nb_reloc != 0 && ((uintptr_t) archive->data >> 32)) {
+    if (archive->header.nb_reloc != 0 && ((uint64_t) (uintptr_t) archive->data >> 32)) {
         pc_disc_ptr_overflow(archive->data, __FILE__, __LINE__);
     }
 #endif
@@ -70,6 +70,11 @@ s32 HSD_ArchiveParse(HSD_Archive* archive, u8* src, size_t file_size)
         archive->symbols = (char*) ((uintptr_t) src + offset);
     }
 
+#ifdef __EMSCRIPTEN__
+    extern void browser_memory_disc(void*,size_t);
+    browser_memory_disc(src,file_size);
+    browser_memory_disc(&archive->header,sizeof(archive->header));
+#endif
     archive->top_ptr = (void*) src;
     Locate(archive);
 

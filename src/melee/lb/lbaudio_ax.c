@@ -250,6 +250,11 @@ int lbAudioAx_800237A8(int id, int vol, int pan)
 
 int lbAudioAx_80023870(int id, int vol, int pan, int track)
 {
+#ifdef __EMSCRIPTEN__
+ extern unsigned direct_present_hook(unsigned,unsigned,unsigned);
+ extern void direct_css_announce(unsigned,unsigned);direct_css_announce(id,track);
+#endif
+
     if (track == 0) {
         return lbAudioAx_800237A8(id, vol, pan);
     }
@@ -546,6 +551,11 @@ int lbAudioAx_8002438C(int id)
 
 int lbAudioAx_800243F4(int id)
 {
+#ifdef __EMSCRIPTEN__
+ extern unsigned direct_present_hook(unsigned,unsigned,unsigned);
+ extern int direct_intro_track(unsigned);int direct_result=direct_intro_track(id);if(direct_result!=-2)return direct_result;
+#endif
+
     int track = 0xCA;
     switch (id) {
     case 0x7C830:

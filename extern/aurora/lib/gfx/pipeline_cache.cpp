@@ -742,7 +742,13 @@ static bool prepare_pipeline_cache_db() {
     return false;
   }
 
+#ifdef __EMSCRIPTEN__
+  // MEMFS has no shared memory for the WAL index and the page is torn down
+  // without a checkpoint, so WAL commits never reached the persisted database.
+  ret = sqlite::exec(g_pipelineCacheDb, "PRAGMA journal_mode=MEMORY; PRAGMA synchronous=OFF;");
+#else
   ret = sqlite::exec(g_pipelineCacheDb, "PRAGMA journal_mode=WAL; PRAGMA synchronous=NORMAL;");
+#endif
   if (ret != SQLITE_OK) {
     Log.error("Failed to set pipeline cache pragmas: {}", sqlite3_errmsg(g_pipelineCacheDb));
     pipeline_cache_abort();

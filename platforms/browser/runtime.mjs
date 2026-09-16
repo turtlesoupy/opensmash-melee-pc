@@ -11,7 +11,7 @@ let directSurface=false;
 let options,selection,ready=false,presentPending=false,playable=false,introReported=false;
 let started=0,lastTime=0,lastFrame=0,lastStamp=0,presented=0,combatFrames=0;
 let audioFrames=0,audioPeak=0,audioOverruns=0,phase=0,previous=[0,0];
-let preparationSamples=[],frameTimes=[],combatWindow,intervalCombat=true;
+let preparationSamples=[],frameTimes=[],combatWindow,intervalCombat=true,lastCombat=false;
 const pads=Array.from({length:4},()=>({buttons:0,until:new Uint32Array(16),values:null}));
 function applyPad(port,frame){
  const pad=pads[port];if(!pad.values)return;
@@ -74,6 +74,7 @@ function onFrame(frame){
  }
  if(intro===1)introReported=false;
  if(intro===2&&!introReported){introReported=true;report('intro');}
+ if(lastCombat&&!combat)Module.FS.syncfs(false,()=>{});lastCombat=combat;
  intervalCombat&&=combat;if(combat)combatFrames++;
  if(!combat)combatWindow=null;
  else if(!combatWindow){const ix=options.audio?new Int32Array(options.audio,0,4):null;combatWindow={time:now,frame,presented,samples:[],underruns:ix?Atomics.load(ix,2):0,rendered:ix?Atomics.load(ix,3):0,overruns:audioOverruns};}
@@ -97,6 +98,7 @@ async function select(data){
   for(const asset of assets){if(!allowed.includes(asset.filename))throw Error('Invalid replacement asset.');const bytes=new Uint8Array(await asset.blob.arrayBuffer());if(bytes.length<32||bytes.length>max)throw Error('Invalid replacement asset size.');const path='/mod/'+asset.filename;Module.FS.mkdirTree(path.slice(0,path.lastIndexOf('/')));Module.FS.writeFile(path,bytes);}
  }
  const c=data.launch;if(!c||!Module._direct_configure(c.mode,c.stage,c.level,c.stocks,c.minutes,...c.packedPorts))throw Error('Invalid match configuration.');
+ try{const seed=await fetch(base+'upstream/initial_pipeline_cache.db');if(seed.ok)Module.FS.writeFile('/initial_pipeline_cache.db',new Uint8Array(await seed.arrayBuffer()));}catch{}
  selection=data;ready=false;Module.discFile=options.iso;Module.readDisc=createDiscCache(options.iso).read;Module.ENV.MELEE_SEED='3';
  const args=options.args||[];if(args.includes('--seed'))Module.ENV.MELEE_SEED=args[args.indexOf('--seed')+1];
  report('session',{backend:'melee-pc-upstream',browser:navigator.userAgent,hardwareConcurrency:navigator.hardwareConcurrency,launch:c});report('started');report('status',{message:'Opening Melee…'});
@@ -117,7 +119,8 @@ window.addEventListener('message',async event=>{
   if(!data.discVerified)await verifyDisc(data.iso,bytes=>report('status',{message:'Checking your game… '+Math.floor(bytes/data.iso.size*100)+'%'}));
   report('disc-verified');await runtimeReady;
   Module.FS.mkdirTree('/mod');Module.FS.mkdirTree('/saves');Module.FS.mkdirTree('/cache');
-  Module.FS.mount(Module.FS.filesystems.IDBFS,{autoPersist:true},'/cache');
+  // Persist the pipeline cache once per match (see onFrame), not on every multi-MB write.
+  Module.FS.mount(Module.FS.filesystems.IDBFS,{autoPersist:false},'/cache');
   Module.FS.mount(Module.FS.filesystems.IDBFS,{autoPersist:true},'/saves');
   await new Promise((resolve,reject)=>Module.FS.syncfs(true,error=>error?reject(error):resolve()));
   const migrated=migrateLegacySaves(Module.FS);if(migrated.length){await new Promise((resolve,reject)=>Module.FS.syncfs(false,error=>error?reject(error):resolve()));report('log',{text:'Imported existing Melee saves into upstream memory-card format.'});}

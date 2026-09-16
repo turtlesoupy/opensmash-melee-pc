@@ -26,8 +26,18 @@ add_executable(melee_browser ${GAME_OBJECTS}
 target_include_directories(melee_browser PRIVATE ${CMAKE_SOURCE_DIR}/extern/aurora/include ${CMAKE_SOURCE_DIR}/src ${CMAKE_SOURCE_DIR}/src/sdk_include)
 target_link_libraries(melee_browser PRIVATE aurora::core aurora::gx aurora::gd aurora::vi aurora::pad aurora::si aurora::mtx aurora::os aurora::card aurora::thp)
 target_compile_options(melee_browser PRIVATE -Wno-incompatible-pointer-types -Wno-int-conversion)
-target_link_options(melee_browser PRIVATE -O1 --profiling-funcs -sEMULATE_FUNCTION_POINTER_CASTS=1 -sSTACK_SIZE=8388608 -sINITIAL_MEMORY=268435456 -sMAXIMUM_MEMORY=2147483648 -sPTHREAD_POOL_SIZE=4 -sEXIT_RUNTIME=0 -sASSERTIONS=1 -lidbfs.js -sFORCE_FILESYSTEM=1 -sEXPORTED_RUNTIME_METHODS=callMain,FS,ENV -sINVOKE_RUN=0 -sASYNCIFY_IMPORTS=browser_disc_read,browser_upload_pools -sASYNCIFY_STACK_SIZE=1048576 -sERROR_ON_UNDEFINED_SYMBOLS=1)
+target_link_options(melee_browser PRIVATE -O1 --profiling-funcs -sEMULATE_FUNCTION_POINTER_CASTS=1 -sSTACK_SIZE=8388608 -sINITIAL_MEMORY=268435456 -sMAXIMUM_MEMORY=2147483648 -sPTHREAD_POOL_SIZE=4 -sEXIT_RUNTIME=0 -sASSERTIONS=0 -lidbfs.js -sFORCE_FILESYSTEM=1 -sEXPORTED_RUNTIME_METHODS=callMain,FS,ENV -sINVOKE_RUN=0 -sASYNCIFY_IMPORTS=browser_disc_read,browser_upload_pools -sASYNCIFY_STACK_SIZE=1048576 -sERROR_ON_UNDEFINED_SYMBOLS=1)
 set_target_properties(melee_browser PROPERTIES SUFFIX ".js")
+# emcc's single-pass link fails validation at -O2/-O3 when --fpcast-emu runs
+# ahead of the optimizer (direct calls into cast thunks keep the original
+# arity), so link at -O1 and optimize the finished module as a second pass.
+find_program(WASM_OPT wasm-opt HINTS "${EMSCRIPTEN_ROOT_PATH}/../bin" REQUIRED)
+add_custom_command(TARGET melee_browser POST_BUILD
+  COMMAND ${WASM_OPT} -O3 -g --mvp-features --enable-threads --enable-bulk-memory --enable-bulk-memory-opt
+    --enable-call-indirect-overlong --enable-multivalue --enable-mutable-globals --enable-nontrapping-float-to-int
+    --enable-reference-types --enable-sign-ext --pass-arg=directize-initial-contents-immutable
+    $<TARGET_FILE_DIR:melee_browser>/melee_browser.wasm -o $<TARGET_FILE_DIR:melee_browser>/melee_browser.wasm
+  COMMENT "Optimizing melee_browser.wasm at -O3")
 
 # Keep the standalone validation server runnable from a clean build.
 file(GLOB BROWSER_ASSETS CONFIGURE_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/*.mjs" "${CMAKE_CURRENT_SOURCE_DIR}/*.html")

@@ -26,6 +26,9 @@ EM_JS(void, browser_upload_pools, (const unsigned* entries, unsigned count), {
   };
   if (pools.every(p => p.state.buffer.mapState === 'mapped' && p.state.size >= p.size)) { copy(); return; }
   return Asyncify.handleAsync(async () => {
+    // A long first mapping means the GPU process is still compiling the
+    // prepared pipelines; let the launcher explain the wait.
+    const waitTimer = setTimeout(() => Module.onUploadWait?.(), 1500);
     await Promise.all(pools.map(async p => {
       const state=p.state; await state.promise;
       if (state.buffer.mapState === 'mapped' && state.size < p.size) {state.buffer.unmap();state.size=0;}
@@ -35,6 +38,7 @@ EM_JS(void, browser_upload_pools, (const unsigned* entries, unsigned count), {
         await state.buffer.mapAsync(GPUMapMode.WRITE,0,state.size);
       }
     }));
+    clearTimeout(waitTimer);
     copy();
   });
 });

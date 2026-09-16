@@ -86,7 +86,7 @@ function onFrame(frame){
  if(now-lastTime>=1000){const fps=(frame-lastFrame)*1000/(now-lastTime);report('progress',{frame,scene,sceneKind:kind,fps,audioFrames,audioPeak,audioIndices:options.audio?Array.from(new Int32Array(options.audio,0,4)):null});report('metrics',{frames:frame,combatFrames,fps,frameTimes,completeCombatInterval:intervalCombat});lastFrame=frame;lastTime=now;frameTimes=[];intervalCombat=true;}
  present();
 }
-window.Module={onGraphicsPreparation:(done,total)=>report('status',{message:done===total?'Opening Melee…':`Preparing graphics… ${Math.floor(done*100/total)}%`}),canvas:document.querySelector('#canvas'),onFrame,onAudio:mix,audioRequested,
+window.Module={onUploadWait:()=>{if(!playable)report('status',{message:'Compiling graphics for your GPU… (first play on this device only)'});},onGraphicsPreparation:(done,total)=>report('status',{message:done===total?'Opening Melee…':`Preparing graphics… ${Math.floor(done*100/total)}%`}),canvas:document.querySelector('#canvas'),onFrame,onAudio:mix,audioRequested,
  print:text=>report('log',{text,message:text}),printErr:text=>report('log',{text,message:text}),
  onRuntimeInitialized:()=>resolveRuntime(),onAbort:fail};
 const script=document.createElement('script');script.src='./melee_browser.js';script.onerror=()=>fail(Error('Build the upstream Melee engine before launching.'));document.head.append(script);

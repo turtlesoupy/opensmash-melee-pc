@@ -38,5 +38,6 @@
       "observedAt": 1789622088311
     }
   ],
-  "errors": []
+  "errors": [],
+  "status": "Historical native-standby measurements. Native initialization is now deferred until Play to avoid interrupting browsing; see roster-responsive.json."
 }

@@ -65,16 +65,17 @@ path without revealing an unfinished initial scene.
 
 ## Standby startup
 
-The shared launcher starts native `main` while the roster is open. After opening
-its disc, loading fonts, initializing WebGPU, submitting cached pipelines, and
-warming effect code, it waits at `browser_wait_for_selection`. The launcher
-installs replacement assets and match settings before releasing that boundary.
-The standalone harness omits the callback and continues normally. Disc and seed
-options must be installed before calling main; main is called only once.
+The shared launcher loads WASM, verifies the disc, restores saves, and fetches the
+shader-cache seed while the roster is open. Native `main` starts only after Play:
+its graphics and SQLite initialization otherwise interrupts browsing. The
+launcher installs replacement assets and match settings before calling main.
+
 
 Run `MELEE_RELAUNCH=1 node tests/browser/shared-performance.mjs` to also check that
 returning to the unified roster warms a replacement engine and that a different
-four-fighter lineup can launch from it. The trace records loading UI transitions
+four-fighter lineup can launch from it. `node tests/browser/roster-performance.mjs`
+checks that native initialization stays deferred during roster browsing.
+The launch trace records loading UI transitions
 alongside the engine events; intentional VS playback is separate from opening.
 
 ## Validation

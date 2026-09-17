@@ -5,7 +5,7 @@ const prefix=location.pathname.startsWith('/melee/')?'/melee':'';
 const base=prefix+'/engine/';
 const report=(type,data={},transfer=[])=>parent.postMessage({type,...data},location.origin,transfer);
 const fail=error=>report('error',{message:error?.stack||String(error)});
-let resolveRuntime, resumeEngine;
+let resolveRuntime;
 const runtimeReady=new Promise(resolve=>resolveRuntime=resolve);
 let directSurface=false;
 let options,selection,ready=false,presentPending=false,playable=false,introReported=false;
@@ -122,7 +122,7 @@ async function select(data){
  const c=data.launch;if(!c||!Module._direct_configure(c.mode,c.stage,c.level,c.stocks,c.minutes,...c.packedPorts))throw Error('Invalid match configuration.');
  selection=data;ready=false;
  report('session',{backend:'melee-pc-upstream',browser:navigator.userAgent,hardwareConcurrency:navigator.hardwareConcurrency,launch:c});report('started');report('status',{message:'Opening Melee…'});
- started=lastTime=performance.now();resumeEngine();
+ started=lastTime=performance.now();Module.callMain([]);
 }
 window.addEventListener('message',async event=>{
  if(event.source!==parent||event.origin!==location.origin)return;
@@ -148,13 +148,9 @@ window.addEventListener('message',async event=>{
   const seed=await seedBytes;if(seed)Module.FS.writeFile('/initial_pipeline_cache.db',seed);
   Module.discFile=data.iso;Module.readDisc=createDiscCache(data.iso).read;Module.ENV.MELEE_SEED='3';
   const args=data.args||[];if(args.includes('--seed'))Module.ENV.MELEE_SEED=args[args.indexOf('--seed')+1];
-  let prepared;
-  const enginePrepared=new Promise(resolve=>{prepared=resolve;});
-  Module.onEnginePrepared=()=>new Promise(resolve=>{
-   resumeEngine=resolve;ready=true;report('ready-for-selection');prepared();
-  });
-  Module.callMain([]);
-  await enginePrepared;
+  // Standby loads the module and files only. Native graphics/cache setup runs
+  // after Play, so its synchronous initialization cannot interrupt the roster.
+  ready=true;report('ready-for-selection');
   if(!data.warm&&data.launch){const c=Array.isArray(data.launch)?{mode:data.launch[0],stage:data.launch[1],level:data.launch[2],stocks:data.launch[3],minutes:data.launch[4],packedPorts:data.launch.slice(5)}:data.launch;await select({...data,launch:c});}
  }catch(error){fail(error);}
 });

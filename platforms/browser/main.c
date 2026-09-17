@@ -48,11 +48,6 @@ void pc_menu_update(void) {}
 void pc_menu_toggle(void) {}
 void pc_menu_event(const SDL_Event *e) { (void)e; }
 bool pc_menu_is_open(void) { return false; }
-/* Standby initializes the disc/device before the user launches a fighter.
- * The standalone harness has already configured its match and does not wait. */
-EM_ASYNC_JS(void, browser_wait_for_selection, (), {
-  if (Module.onEnginePrepared) await Module.onEnginePrepared();
-});
 int main(int argc, char **argv) {
   sync_browser_environment();
   mkdir("/saves", 0777);
@@ -84,6 +79,5 @@ int main(int argc, char **argv) {
   browser_warm_effect_code();
   pc_platform_init();
   aurora_card_set_present(true);
-  browser_wait_for_selection();
   return melee_main();
 }

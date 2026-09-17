@@ -1,0 +1,48 @@
+{
+  "approach": "Defer native main until Play; keep WASM/disc setup and shader seed fetch in standby. Parallel menu and fighter preparation remains in the launcher.",
+  "environment": "Local unified shell, headed Chrome, real disc; four custom fighters. Fresh browser context and a repeat launch with a different lineup. Server assets may be cached.",
+  "roster": {
+    "warmingMs": 4,
+    "warming": {
+      "frames": 0,
+      "p99": 0,
+      "max": 0,
+      "over50": 0,
+      "over100": 0
+    },
+    "idle": {
+      "frames": 280,
+      "p99": 7.720000000000255,
+      "max": 7.775000000000546,
+      "over50": 0,
+      "over100": 0
+    },
+    "errors": []
+  },
+  "openingToIntroMs": [
+    1689,
+    1014
+  ],
+  "combat": [
+    {
+      "type": "combat-performance",
+      "profile": "upstream",
+      "durationMs": 30007.004999876022,
+      "frames": 1798,
+      "combatFrames": 1799,
+      "fps": 59.919342167184915,
+      "presentedBitmapFps": 59.919342167184915,
+      "p95": 18.144999980926514,
+      "p99": 19.259999990463257,
+      "maxFrameMs": 53.06499981880188,
+      "over33ms": 1,
+      "audioPeak": 1,
+      "audioUnderrunSamples": 0,
+      "audioRenderedSamples": 1439744,
+      "audioOverrunSamples": 0,
+      "targetFps": 60,
+      "observedAt": 1789622961409
+    }
+  ],
+  "errors": []
+}

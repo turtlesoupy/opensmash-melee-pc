@@ -29,6 +29,12 @@ static void sync_browser_environment(void) {
     free(key);free(value);
   }
 }
+EM_JS(int, browser_render_width, (void), {
+  const requested = Number(Module.renderWidth);
+  if (Number.isFinite(requested) && requested >= 640 && requested <= 1920)
+    return Math.round(requested / 4) * 4;
+  return /Android|iPhone|iPad/.test(navigator.userAgent) ? 640 : 960;
+});
 void pc_log_line(const char *fmt, ...) {
   va_list a;
   va_start(a, fmt);
@@ -71,6 +77,8 @@ int main(int argc, char **argv) {
                     .desiredBackend = BACKEND_WEBGPU,
                     .mem1Size = PC_MEM1_SIZE,
                     .mem2Size = PC_ARAM_SIZE};
+  c.windowWidth = browser_render_width();
+  c.windowHeight = c.windowWidth * 3 / 4;
   AuroraInfo info = aurora_initialize(argc, argv, &c);
   (void)info;
   extern void browser_prepare_graphics(void);

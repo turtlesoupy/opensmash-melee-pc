@@ -320,6 +320,11 @@ const AuroraEvent* poll_events() {
 
 bool create_window(AuroraBackend backend) {
   SDL_WindowFlags flags = SDL_WINDOW_HIGH_PIXEL_DENSITY;
+#ifdef __EMSCRIPTEN__
+  // Browser launchers choose a render budget in physical pixels. Applying
+  // phone DPR again multiplies attachment memory and fill cost by DPR squared.
+  flags = 0;
+#endif
 #if TARGET_OS_IOS || TARGET_OS_TV
   flags |= SDL_WINDOW_FULLSCREEN;
 #else

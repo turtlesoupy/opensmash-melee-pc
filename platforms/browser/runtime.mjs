@@ -121,6 +121,7 @@ async function select(data){
  }
  const c=data.launch;if(!c||!Module._direct_configure(c.mode,c.stage,c.level,c.stocks,c.minutes,...c.packedPorts))throw Error('Invalid match configuration.');
  selection=data;ready=false;
+ Module.renderWidth=data.renderWidth;
  report('session',{backend:'melee-pc-upstream',browser:navigator.userAgent,hardwareConcurrency:navigator.hardwareConcurrency,launch:c});report('started');report('status',{message:'Opening Melee…'});
  started=lastTime=performance.now();Module.callMain([]);
 }

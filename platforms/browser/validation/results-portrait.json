@@ -1,0 +1,24 @@
+{
+  "scenario": "Main smash.fun shell, native fitting, Tolstoy with Marth moveset wins on port 3",
+  "before": {
+    "captureWidth": 13312,
+    "captureHeight": 18944,
+    "cropX": 6950,
+    "cropY": 9618,
+    "winnerPortrait": "blank"
+  },
+  "after": {
+    "captureWidth": 52,
+    "captureHeight": 74,
+    "cropX": 320,
+    "cropY": 183,
+    "winnerPortrait": "visible and framed",
+    "loserPortraits": "visible"
+  },
+  "validation": [
+    "Real engine match completed using temporary diagnostic knockout hook; no test override retained",
+    "Winner portrait visually verified in Chrome",
+    "Browser runtime rebuilt",
+    "Host and WASM disc-lowering oracle checks passed"
+  ]
+}

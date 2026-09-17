@@ -6,6 +6,7 @@
 #include <string.h>
 #include <sysdolphin/baselib/cobj.h>
 #include <sysdolphin/baselib/pobj.h>
+#include <sysdolphin/baselib/tobj.h>
 #include <emscripten/heap.h>
 #include <math.h>
 #include <stdint.h>
@@ -151,8 +152,12 @@ static void results_portrait_camera(CPUState* s,unsigned port) {
      * actual animated custom head within that crop, with shoulder/headroom. */
     float distance=radius*.6f/tanf(fov*.00872664626f)/aspect*(640.f/52.f);
     unsigned state=0x8046E3AC;
-    float capture_width=moderngekko_mod_read(s,0x8046E1B0+0x164+port*24+4,2);
-    float capture_height=moderngekko_mod_read(s,0x8046E1B0+0x164+port*24+6,2);
+    /* Image descriptors retain disc byte order even in native globals. Typed
+     * accesses let the browser compiler lower these fields correctly; the raw
+     * memory adapter otherwise reads 52 x 74 as 13312 x 18944. */
+    const HSD_ImageDesc* capture=(const HSD_ImageDesc*)(uintptr_t)
+        host_address(0x8046E1B0+0x164+port*sizeof(HSD_ImageDesc));
+    float capture_width=capture->width,capture_height=capture->height;
     if(capture_width<1 || capture_height<1)return;
     unsigned w1=moderngekko_mod_read(s,state+0x22B4,2),h1=moderngekko_mod_read(s,state+0x22C4,2);
     float crop_x=moderngekko_mod_read(s,state+0x22A4,2)+320-(w1/4)*2+capture_width*.5f;
@@ -164,6 +169,7 @@ static void results_portrait_camera(CPUState* s,unsigned port) {
     if(reported[port]!=identity) {
         reported[port]=identity;
         fprintf(stderr,"[opensmash] portrait fit port=%u radius=%.2f distance=%.2f fov=%.2f\n",port,radius,distance,fov);
+        fprintf(stderr,"[opensmash] portrait debug near=%.2f far=%.2f center=%.2f,%.2f,%.2f crop=%.2f,%.2f size=%.2f,%.2f\n",presentation_float(s,camera+0x38),presentation_float(s,camera+0x3c),center[0],center[1],center[2],crop_x,crop_y,capture_width,capture_height);
     }
     for(unsigned axis=0;axis<3;axis++) {
         presentation_write_float(s,interest+0xc+axis*4,center[axis]);

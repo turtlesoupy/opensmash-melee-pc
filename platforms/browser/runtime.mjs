@@ -134,7 +134,8 @@ window.addEventListener('message',async event=>{
   if(data.type==='input'){if(selection)Module._direct_set_pad(...data.values);return;}
   if(data.type==='confirm'){setPad([0,256,0x80808080,0,1]);setPad([0,0,0x80808080,0,1]);return;}
   if(data.type==='select'){await select(data);return;}
-  if(data.type!=='start'||options)return;options=data;
+  if(data.type!=='start'||options)return;options={...data,audio:window.openSmashAudioRing||data.audio};
+  delete window.openSmashAudioRing;
   report('status',{message:'Checking your local Melee disc…'});
   const {verifyDisc}=await import(base+'verify-disc.mjs');
   if(!data.discVerified)await verifyDisc(data.iso,bytes=>report('status',{message:'Checking your game… '+Math.floor(bytes/data.iso.size*100)+'%'}));

@@ -31,9 +31,11 @@ set_target_properties(melee_browser PROPERTIES SUFFIX ".js")
 # emcc's single-pass link fails validation at -O2/-O3 when --fpcast-emu runs
 # ahead of the optimizer (direct calls into cast thunks keep the original
 # arity), so link at -O1 and optimize the finished module as a second pass.
+# Bound inlining after Asyncify: giant functions cause large Safari OMG JIT
+# register-allocation spikes, even while the game heap stays at 256 MiB.
 find_program(WASM_OPT wasm-opt HINTS "${EMSCRIPTEN_ROOT_PATH}/../bin" REQUIRED)
 add_custom_command(TARGET melee_browser POST_BUILD
-  COMMAND ${WASM_OPT} -O3 -g --mvp-features --enable-threads --enable-bulk-memory --enable-bulk-memory-opt
+  COMMAND ${WASM_OPT} -O3 -g --inline-max-combined-binary-size=20000 --one-caller-inline-max-function-size=2000 --mvp-features --enable-threads --enable-bulk-memory --enable-bulk-memory-opt
     --enable-call-indirect-overlong --enable-multivalue --enable-mutable-globals --enable-nontrapping-float-to-int
     --enable-reference-types --enable-sign-ext --pass-arg=directize-initial-contents-immutable
     $<TARGET_FILE_DIR:melee_browser>/melee_browser.wasm -o $<TARGET_FILE_DIR:melee_browser>/melee_browser.wasm

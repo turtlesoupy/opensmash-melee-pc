@@ -16,6 +16,7 @@ const page=await browser.newPage({viewport:{width:1440,height:1000}}),events=[],
 page.on('pageerror',e=>(e.stack?.includes('https://www.youtube-nocookie.com/')?externalErrors:errors).push(e.stack));
 await page.exposeFunction('recordMeleePerf',data=>{events.push({...data,observedAt:Date.now()});if(['combat-performance','startup-performance','error'].includes(data.type))console.log(JSON.stringify(data));});
 await page.addInitScript(()=>{
+ document.addEventListener('DOMContentLoaded',()=>{let previous='';new MutationObserver(()=>{const message=document.querySelector('.game-message')?.textContent||'';if(message!==previous){previous=message;window.recordMeleePerf({type:'loading-status',message});}}).observe(document.body,{childList:true,subtree:true,characterData:true});});
  sessionStorage.setItem('opensmash-advanced-options',JSON.stringify({selectionMode:'full-roster',ports:['keyboard','cpu','cpu','cpu']}));
  window.addEventListener('message',e=>{
   if(e.origin!==location.origin||!e.data?.type||['frame','metrics','pad'].includes(e.data.type))return;
@@ -31,6 +32,7 @@ try{
  await page.evaluate(()=>{const input=document.createElement('input');input.type='file';input.id='perf-disc';input.onchange=()=>window.openSmashReactBridge.validateRom(input.files[0]);document.body.append(input);});
  await page.locator('#perf-disc').setInputFiles(iso);
  await page.waitForFunction(()=>window.openSmashReactBridge.isAuthorized(),null,{timeout:180000});
+ events.push({type:'launch-click',observedAt:Date.now()});
  await page.evaluate(()=>window.openSmashReactBridge.launch({type:'character',slug:'donaldtrump',picks:['abrahamlincoln','barackobama','jesuschrist']}));
  const deadline=Date.now()+180000;let watched=false,playable=false;
  while(Date.now()<deadline){
@@ -52,12 +54,26 @@ try{
   if(events.filter(e=>e.type==='combat-performance').length>=targetWindows)break;
  }
  const windows=events.filter(e=>e.type==='combat-performance');assert.equal(windows.length,targetWindows,'Complete combat windows are required');
+ if(process.env.MELEE_RELAUNCH==='1'){
+  await page.evaluate(()=>window.gameLauncher.close());
+  const boundary=events.length;
+  await page.waitForFunction(()=>!document.querySelector('.game-overlay'));
+  const warmDeadline=Date.now()+30000;
+  while(!events.slice(boundary).some(e=>e.type==='ready-for-selection')&&Date.now()<warmDeadline)await page.waitForTimeout(100);
+  assert.ok(events.slice(boundary).some(e=>e.type==='ready-for-selection'),'Roster must warm the next engine');
+  events.push({type:'relaunch-click',observedAt:Date.now()});
+  await page.evaluate(()=>window.openSmashReactBridge.launch({type:'character',slug:'donaldtrump',picks:['snoopdogg','marilynmonroe','dwaynetherockjoh']}));
+  const repeatDeadline=Date.now()+60000;
+  while(!events.slice(boundary).some(e=>e.type==='playable')&&Date.now()<repeatDeadline)await page.waitForTimeout(100);
+  assert.ok(events.slice(boundary).some(e=>e.type==='playable'),'New lineup must launch from standby');
+  assert.ok(!events.some(e=>e.type==='error'));assert.equal(errors.length,0,errors.join('\n'));
+ }
  const launch=events.find(e=>e.type==='session')?.launch;assert.equal(launch?.packedPorts.filter(p=>(p>>>8&255)!==3).length,4);
  const reveals=events.filter(e=>e.type==='presentation-state'&&e.visibility==='visible'&&e.intro===3);
  assert.ok(reveals.length,'Match reveal was observed');assert.ok(reveals.every(e=>e.preparation===4),'No match frame may appear before preparation ends');
  const stalls=events.filter(e=>e.type==='frame-stall'&&e.preparation===4&&e.intro===3);
  const playableIndex=events.findIndex(e=>e.type==='playable');
- const summary={url:url.href,launch,windows,firstProgress:events.slice(playableIndex).filter(e=>e.type==='progress').slice(0,6),worstStalls:stalls.sort((a,b)=>b.durationMs-a.durationMs).slice(0,10),presentation:events.filter(e=>e.type==='presentation-state'),errors,externalErrors};
+ const summary={url:url.href,launch,windows,startup:events.filter(e=>['launch-click','relaunch-click','loading-status','ready-for-selection','started','intro','playable'].includes(e.type)),firstProgress:events.slice(playableIndex).filter(e=>e.type==='progress').slice(0,6),worstStalls:stalls.sort((a,b)=>b.durationMs-a.durationMs).slice(0,10),presentation:events.filter(e=>e.type==='presentation-state'),errors,externalErrors};
  await writeFile(path.join(output,'summary.json'),JSON.stringify(summary,null,2));
  await page.screenshot({path:path.join(output,'match-end.png')});
  // Tail latency and actual audio consumption are gates, not just average FPS.

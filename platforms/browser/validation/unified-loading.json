@@ -1,0 +1,42 @@
+{
+  "environment": "Chrome, unified shell at localhost, real local disc, four custom CPU fighters. Fresh browser context; server asset caches may already be populated. Repeat uses a different lineup.",
+  "baseline": {
+    "openingToIntroMs": 1789,
+    "clickToPlayableMs": 8850
+  },
+  "optimized": {
+    "firstOpeningToIntroMs": 771,
+    "repeatOpeningToIntroMs": 706,
+    "firstFighterPreparationMs": 101,
+    "repeatCharacterSelectVisibleMs": 359,
+    "firstClickToPlayableMs": 7146,
+    "repeatClickToPlayableMs": 7129
+  },
+  "notes": [
+    "Click-to-playable includes the intentional VS animation and match graphics preparation.",
+    "Neither cold network delivery nor a completely empty server asset cache is covered.",
+    "Existing stable-frame, pending-pipeline, and GPU-fence reveal gates are unchanged."
+  ],
+  "combat": [
+    {
+      "type": "combat-performance",
+      "profile": "upstream",
+      "durationMs": 30002.420000076294,
+      "frames": 1800,
+      "combatFrames": 1801,
+      "fps": 59.99516039024261,
+      "presentedBitmapFps": 59.99516039024261,
+      "p95": 19.664999961853027,
+      "p99": 22.37999987602234,
+      "maxFrameMs": 33.99000000953674,
+      "over33ms": 3,
+      "audioPeak": 1,
+      "audioUnderrunSamples": 0,
+      "audioRenderedSamples": 1440768,
+      "audioOverrunSamples": 0,
+      "targetFps": 60,
+      "observedAt": 1789622088311
+    }
+  ],
+  "errors": []
+}

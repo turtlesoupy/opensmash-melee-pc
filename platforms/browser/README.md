@@ -63,6 +63,20 @@ pipeline compilations, a fresh 30-frame timing window, and GPU queue completion
 before revealing the scene. This keeps first-use compilation off the submission
 path without revealing an unfinished initial scene.
 
+## Standby startup
+
+The shared launcher starts native `main` while the roster is open. After opening
+its disc, loading fonts, initializing WebGPU, submitting cached pipelines, and
+warming effect code, it waits at `browser_wait_for_selection`. The launcher
+installs replacement assets and match settings before releasing that boundary.
+The standalone harness omits the callback and continues normally. Disc and seed
+options must be installed before calling main; main is called only once.
+
+Run `MELEE_RELAUNCH=1 node tests/browser/shared-performance.mjs` to also check that
+returning to the unified roster warms a replacement engine and that a different
+four-fighter lineup can launch from it. The trace records loading UI transitions
+alongside the engine events; intentional VS playback is separate from opening.
+
 ## Validation
 
 The checked-in `validation` directory records real-disc functional coverage and

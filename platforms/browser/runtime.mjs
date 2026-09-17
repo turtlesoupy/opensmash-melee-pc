@@ -5,7 +5,7 @@ const prefix=location.pathname.startsWith('/melee/')?'/melee':'';
 const base=prefix+'/engine/';
 const report=(type,data={},transfer=[])=>parent.postMessage({type,...data},location.origin,transfer);
 const fail=error=>report('error',{message:error?.stack||String(error)});
-let resolveRuntime;
+let resolveRuntime, resumeEngine;
 const runtimeReady=new Promise(resolve=>resolveRuntime=resolve);
 let directSurface=false;
 let options,selection,ready=false,presentPending=false,playable=false,introReported=false;
@@ -120,11 +120,9 @@ async function select(data){
   for(const asset of assets){if(!allowed.includes(asset.filename))throw Error('Invalid replacement asset.');const bytes=new Uint8Array(await asset.blob.arrayBuffer());if(bytes.length<32||bytes.length>max)throw Error('Invalid replacement asset size.');const path='/mod/'+asset.filename;Module.FS.mkdirTree(path.slice(0,path.lastIndexOf('/')));Module.FS.writeFile(path,bytes);}
  }
  const c=data.launch;if(!c||!Module._direct_configure(c.mode,c.stage,c.level,c.stocks,c.minutes,...c.packedPorts))throw Error('Invalid match configuration.');
- try{const seed=await fetch(base+'upstream/initial_pipeline_cache.db');if(seed.ok)Module.FS.writeFile('/initial_pipeline_cache.db',new Uint8Array(await seed.arrayBuffer()));}catch{}
- selection=data;ready=false;Module.discFile=options.iso;Module.readDisc=createDiscCache(options.iso).read;Module.ENV.MELEE_SEED='3';
- const args=options.args||[];if(args.includes('--seed'))Module.ENV.MELEE_SEED=args[args.indexOf('--seed')+1];
+ selection=data;ready=false;
  report('session',{backend:'melee-pc-upstream',browser:navigator.userAgent,hardwareConcurrency:navigator.hardwareConcurrency,launch:c});report('started');report('status',{message:'Opening Melee…'});
- started=lastTime=performance.now();Module.callMain([]);
+ started=lastTime=performance.now();resumeEngine();
 }
 window.addEventListener('message',async event=>{
  if(event.source!==parent||event.origin!==location.origin)return;
@@ -140,13 +138,23 @@ window.addEventListener('message',async event=>{
   const {verifyDisc}=await import(base+'verify-disc.mjs');
   if(!data.discVerified)await verifyDisc(data.iso,bytes=>report('status',{message:'Checking your game… '+Math.floor(bytes/data.iso.size*100)+'%'}));
   report('disc-verified');await runtimeReady;
+  const seedBytes=fetch(base+'upstream/initial_pipeline_cache.db').then(async response=>response.ok?new Uint8Array(await response.arrayBuffer()):null).catch(()=>null);
   Module.FS.mkdirTree('/mod');Module.FS.mkdirTree('/saves');Module.FS.mkdirTree('/cache');
   // Persist the pipeline cache once per match (see onFrame), not on every multi-MB write.
   Module.FS.mount(Module.FS.filesystems.IDBFS,{autoPersist:false},'/cache');
   Module.FS.mount(Module.FS.filesystems.IDBFS,{autoPersist:true},'/saves');
   await new Promise((resolve,reject)=>Module.FS.syncfs(true,error=>error?reject(error):resolve()));
   const migrated=migrateLegacySaves(Module.FS);if(migrated.length){await new Promise((resolve,reject)=>Module.FS.syncfs(false,error=>error?reject(error):resolve()));report('log',{text:'Imported existing Melee saves into upstream memory-card format.'});}
-  ready=true;report('ready-for-selection');
+  const seed=await seedBytes;if(seed)Module.FS.writeFile('/initial_pipeline_cache.db',seed);
+  Module.discFile=data.iso;Module.readDisc=createDiscCache(data.iso).read;Module.ENV.MELEE_SEED='3';
+  const args=data.args||[];if(args.includes('--seed'))Module.ENV.MELEE_SEED=args[args.indexOf('--seed')+1];
+  let prepared;
+  const enginePrepared=new Promise(resolve=>{prepared=resolve;});
+  Module.onEnginePrepared=()=>new Promise(resolve=>{
+   resumeEngine=resolve;ready=true;report('ready-for-selection');prepared();
+  });
+  Module.callMain([]);
+  await enginePrepared;
   if(!data.warm&&data.launch){const c=Array.isArray(data.launch)?{mode:data.launch[0],stage:data.launch[1],level:data.launch[2],stocks:data.launch[3],minutes:data.launch[4],packedPorts:data.launch.slice(5)}:data.launch;await select({...data,launch:c});}
  }catch(error){fail(error);}
 });

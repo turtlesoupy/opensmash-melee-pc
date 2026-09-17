@@ -480,9 +480,16 @@ void initialize() {
     const auto label = fmt::format("Staging Buffer {}", i);
 #ifdef __EMSCRIPTEN__
     constexpr uint64_t capacities[]{VertexBufferSize, UniformBufferSize, IndexBufferSize, StorageBufferSize, TextureUploadSize};
-    for (size_t pool = 0; pool < 5; ++pool)
-      createBuffer(g_browserStagingPools[i][pool], wgpu::BufferUsage::CopyDst | wgpu::BufferUsage::CopySrc,
-                   capacities[pool], label.c_str());
+    // writeBuffer is queue-ordered before this frame's submission. Vertex,
+    // uniform, index and storage ranges are append-only within the packet,
+    // so upload directly to their final buffers instead of keeping 63 MiB
+    // of duplicate GPU staging allocations. Textures still need a copy source.
+    g_browserStagingPools[i][0] = g_resources.vertexBuffer;
+    g_browserStagingPools[i][1] = g_resources.uniformBuffer;
+    g_browserStagingPools[i][2] = g_resources.indexBuffer;
+    g_browserStagingPools[i][3] = g_resources.storageBuffer;
+    createBuffer(g_browserStagingPools[i][4], wgpu::BufferUsage::CopyDst | wgpu::BufferUsage::CopySrc,
+                 capacities[4], label.c_str());
 #else
     createBuffer(g_stagingBuffers[i], wgpu::BufferUsage::MapWrite | wgpu::BufferUsage::CopySrc, StagingBufferSize,
                  label.c_str());

@@ -335,6 +335,11 @@ void copy_staging_buffer_range(wgpu::CommandEncoder& cmd, const FramePacket& fra
   if (highWater <= copied) {
     return;
   }
+#ifdef __EMSCRIPTEN__
+  // Browser uploads target the final buffers before queue submission.
+  copied = highWater;
+  return;
+#endif
   const uint32_t copyStart = align_down_copy_offset(copied);
   const uint32_t copyEnd = AURORA_ALIGN(highWater, 4);
   cmd.CopyBufferToBuffer(staging_buffer(frame.stagingBuffer, pool), stagingOffset + copyStart, dst, copyStart,

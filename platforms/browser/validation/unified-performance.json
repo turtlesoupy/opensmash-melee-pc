@@ -1,0 +1,129 @@
+{
+  "date": "2026-09-16",
+  "baseRevision": "17a4560",
+  "scope": "Headed Chrome, unified shell, four custom CPU fighters on Yoshi\u2019s Story (stage 10), level 5; normal audio output enabled. Fresh browser contexts; OS/driver caches not purged.",
+  "lineup": [
+    "Donald Trump / Falco",
+    "Abraham Lincoln / Captain Falcon",
+    "Barack Obama / Young Link",
+    "Jesus Christ / Mario"
+  ],
+  "baseline": [
+    {
+      "durationMs": 30009.55999994278,
+      "fps": 56.58196921258551,
+      "p95": 18.569999933242798,
+      "p99": 22.230000019073486,
+      "maxFrameMs": 462.2000000476837,
+      "over33ms": 10,
+      "audioUnderrunSamples": 10762,
+      "audioRenderedSamples": 1440768
+    },
+    {
+      "durationMs": 30006.259999990463,
+      "fps": 57.65463606595923,
+      "p95": 18.930000066757202,
+      "p99": 23.15000009536743,
+      "maxFrameMs": 496.1050000190735,
+      "over33ms": 9,
+      "audioUnderrunSamples": 6950,
+      "audioRenderedSamples": 1439744
+    },
+    {
+      "durationMs": 30037.960000038147,
+      "fps": 58.525945170636334,
+      "p95": 21.055000066757202,
+      "p99": 33.989999771118164,
+      "maxFrameMs": 64.39499998092651,
+      "over33ms": 18,
+      "audioUnderrunSamples": 0,
+      "audioRenderedSamples": 1441792
+    }
+  ],
+  "compiledEngine": [
+    {
+      "durationMs": 30011.86999988556,
+      "fps": 59.80966864133573,
+      "p95": 19.90000009536743,
+      "p99": 23.65500020980835,
+      "maxFrameMs": 65.59999990463257,
+      "over33ms": 4,
+      "audioUnderrunSamples": 0,
+      "audioRenderedSamples": 1440768
+    },
+    {
+      "durationMs": 30009.259999990463,
+      "fps": 59.881516571903845,
+      "p95": 19.72499990463257,
+      "p99": 21.44000005722046,
+      "maxFrameMs": 33.480000019073486,
+      "over33ms": 1,
+      "audioUnderrunSamples": 0,
+      "audioRenderedSamples": 1440768
+    },
+    {
+      "durationMs": 30001.210000038147,
+      "fps": 59.997580097526445,
+      "p95": 18.555000066757202,
+      "p99": 19.65499997138977,
+      "maxFrameMs": 24,
+      "over33ms": 0,
+      "audioUnderrunSamples": 0,
+      "audioRenderedSamples": 1439744
+    }
+  ],
+  "presentation": [
+    {
+      "visibility": "hidden",
+      "intro": 0,
+      "preparation": 1
+    },
+    {
+      "visibility": "visible",
+      "intro": 2,
+      "preparation": 1
+    },
+    {
+      "visibility": "hidden",
+      "intro": 3,
+      "preparation": 1
+    },
+    {
+      "visibility": "visible",
+      "intro": 3,
+      "preparation": 4
+    }
+  ],
+  "openingProgressFps": [
+    55.87400411432792,
+    60.211827187286445,
+    59.940658747268564,
+    59.158179110134434,
+    59.867991069984605,
+    59.971813260350224
+  ],
+  "checks": [
+    "Full Emscripten engine build",
+    "12 JavaScript regression tests",
+    "Three consecutive 30-second unified-shell combat windows",
+    "First match reveal only at preparation state 4",
+    "Real audio consumer active; zero underrun samples"
+  ],
+  "notes": [
+    "GX pipelines compile asynchronously; a newly encountered draw waits until its pipeline is available while simulation continues. Initial VS/match reveal waits for all initial pipelines and GPU queue completion.",
+    "The one-second progress sample straddling playable includes preparation and is not a full combat-only interval.",
+    "The isolated test backend uses a fresh fitting module with HEAPU8 explicitly exported; shared shell and deploy sources were not changed.",
+    "A shutdown-only upload-buffer cleanup was added after this three-window run; a final binary smoke run is recorded separately."
+  ],
+  "reproduce": "MELEE_ISO=/path/to/disc.iso PLAYWRIGHT_MODULE=/path/to/playwright MELEE_SHARED_URL=http://127.0.0.1:5298/melee node tests/browser/shared-performance.mjs",
+  "finalWasmSha256": "9e8b4c33a036d955c413e20d9053383cebef26512b91dffbf8bd06b550ac855e",
+  "finalBinarySmoke": {
+    "durationMs": 30005.140000104904,
+    "fps": 59.823083644793,
+    "p95": 19.670000076293945,
+    "p99": 22.825000047683716,
+    "maxFrameMs": 41.125,
+    "audioUnderrunSamples": 0,
+    "audioRenderedSamples": 1439744
+  }
+}

@@ -56,6 +56,12 @@ Native mapped staging buffers remain unchanged. The browser uses a persistent
 CPU arena and `Queue.WriteBuffer` for the used ranges of each frame. This avoids
 emdawn allocating, clearing, and copying all 87 MiB of staging capacity on every
 frame. GPU copy commands, render state, pool capacities, and ordering are retained.
+Browser staging pools use `CopyDst | CopySrc`; they are never mapped during
+play. GX pipelines compile asynchronously, and only draws whose pipeline is
+still pending are skipped. Initial VS/match preparation waits for outstanding
+pipeline compilations, a fresh 30-frame timing window, and GPU queue completion
+before revealing the scene. This keeps first-use compilation off the submission
+path without revealing an unfinished initial scene.
 
 ## Validation
 

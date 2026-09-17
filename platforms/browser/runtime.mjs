@@ -11,7 +11,7 @@ let directSurface=false;
 let options,selection,ready=false,presentPending=false,playable=false,introReported=false;
 let started=0,lastTime=0,lastFrame=0,lastStamp=0,presented=0,combatFrames=0;
 let audioFrames=0,audioPeak=0,audioOverruns=0,phase=0,previous=[0,0];
-let preparationSamples=[],frameTimes=[],combatWindow,intervalCombat=true,lastCombat=false;
+let preparationSamples=[],preparationPhase=null,preparationGeneration=0,preparationGpuReady=false,preparationGpuPending=false,frameTimes=[],combatWindow,intervalCombat=true,lastCombat=false;
 const pads=Array.from({length:4},()=>({buttons:0,until:new Uint32Array(16),values:null}));
 function applyPad(port,frame){
  const pad=pads[port];if(!pad.values)return;
@@ -45,12 +45,15 @@ function audioRequested(){
 }
 function present(){
  if(presentPending||!selection)return;
- const preparing=Module._opensmash_intro_state()===1||Module._opensmash_preparation_state()===2;
+ const intro=Module._opensmash_intro_state(),preparation=Module._opensmash_preparation_state();
+ // Keep the match hidden from its first frame through the resume draw.
+ // State 1 includes the VS sequence, which must remain visible while playing.
+ const preparing=intro===1||(preparation!==4&&intro!==2);
  if(directSurface)Module.canvas.style.visibility=preparing?'hidden':'visible';
  if(preparing)return;
  const completed=()=>{
   const scene=Module._direct_scene(),kind=Module._direct_scene_kind(),mode=selection.launch.mode;
-  const reached=mode===0?kind===2&&combatFrames>1&&![1,2].includes(Module._opensmash_intro_state()):mode===1?(scene>>>8)===1:mode===3?(scene>>>8)===3:true;
+  const reached=mode===0?kind===2&&Module._opensmash_preparation_state()===4&&combatFrames>1&&![1,2].includes(Module._opensmash_intro_state()):mode===1?(scene>>>8)===1:mode===3?(scene>>>8)===3:true;
   if(reached&&!playable){playable=true;report('playable');report('startup-performance',{clickToMatchMs:Date.now()-(selection.requestedAt||Date.now())});}
  };
  if(directSurface){presented++;report('frame',{direct:true});completed();return;}
@@ -67,10 +70,29 @@ function onFrame(frame){
  if(lastStamp&&now-lastStamp>33.34)report('frame-stall',{frame,scene,intro,preparation:Module._opensmash_preparation_state(),durationMs:now-lastStamp,phases:Module.framePhases||{}});
  Module.framePhases={};
  const combat=kind===2&&Module._opensmash_preparation_state()===4&&intro!==1&&intro!==2;
- if(lastStamp){frameTimes.push(now-lastStamp);preparationSamples.push(now-lastStamp);if(preparationSamples.length>30)preparationSamples.shift();}
- if(preparationSamples.length===30&&preparationSamples.every(ms=>ms<40)){
-  if(intro===1)Module._opensmash_finish_intro_preparation();
-  if(Module._opensmash_preparation_state()===2)Module._opensmash_finish_preparation();
+ const preparingPhase=intro===1?'intro':Module._opensmash_preparation_state()===2?'match':null;
+ if(lastStamp)frameTimes.push(now-lastStamp);
+ // A new scene needs its own stable window. VS timings say nothing about
+ // the match's shaders, uploads, or first-use WASM compilation.
+ if(preparingPhase!==preparationPhase){
+  preparationSamples=[];preparationPhase=preparingPhase;preparationGeneration++;preparationGpuReady=false;preparationGpuPending=false;
+  if(preparingPhase==='match')report('status',{message:'Preparing match graphics…'});
+ }
+ else if(preparingPhase&&lastStamp){preparationSamples.push(now-lastStamp);if(preparationSamples.length>30)preparationSamples.shift();}
+ if(preparationSamples.length===30&&preparationSamples.every(ms=>ms<25)&&!Module.browserPipelinePending){
+  if(Module.browserGpuQueue&&!preparationGpuReady){
+   if(!preparationGpuPending){
+    preparationGpuPending=true;
+    const generation=preparationGeneration;
+    const timer=setTimeout(()=>Module.onUploadWait?.(),1500);
+    Module.browserGpuQueue.onSubmittedWorkDone().then(()=>{
+     if(preparationGeneration===generation){preparationGpuReady=true;preparationGpuPending=false;}
+    }).catch(fail).finally(()=>clearTimeout(timer));
+   }
+  }else{
+   if(intro===1)Module._opensmash_finish_intro_preparation();
+   if(Module._opensmash_preparation_state()===2)Module._opensmash_finish_preparation();
+  }
  }
  if(intro===1)introReported=false;
  if(intro===2&&!introReported){introReported=true;report('intro');}
@@ -86,7 +108,7 @@ function onFrame(frame){
  if(now-lastTime>=1000){const fps=(frame-lastFrame)*1000/(now-lastTime);report('progress',{frame,scene,sceneKind:kind,fps,audioFrames,audioPeak,audioIndices:options.audio?Array.from(new Int32Array(options.audio,0,4)):null});report('metrics',{frames:frame,combatFrames,fps,frameTimes,completeCombatInterval:intervalCombat});lastFrame=frame;lastTime=now;frameTimes=[];intervalCombat=true;}
  present();
 }
-window.Module={onUploadWait:()=>{if(!playable)report('status',{message:'Compiling graphics for your GPU… (first play on this device only)'});},onGraphicsPreparation:(done,total)=>report('status',{message:done===total?'Opening Melee…':`Preparing graphics… ${Math.floor(done*100/total)}%`}),canvas:document.querySelector('#canvas'),onFrame,onAudio:mix,audioRequested,
+window.Module={onUploadWait:()=>{if(!playable)report('status',{message:'Compiling graphics for your GPU…'});},onGraphicsPreparation:(done,total)=>report('status',{message:done===total?'Compiling graphics for your GPU…':`Preparing graphics… ${Math.floor(done*100/total)}%`}),canvas:document.querySelector('#canvas'),onFrame,onAudio:mix,audioRequested,
  print:text=>report('log',{text,message:text}),printErr:text=>report('log',{text,message:text}),
  onRuntimeInitialized:()=>resolveRuntime(),onAbort:fail};
 const script=document.createElement('script');script.src='./melee_browser.js';script.onerror=()=>fail(Error('Build the upstream Melee engine before launching.'));document.head.append(script);

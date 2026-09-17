@@ -1,60 +1,28 @@
 #ifdef __EMSCRIPTEN__
 #include <emscripten.h>
 extern "C" void browser_yield(void);
-// Map only the bytes used by each pool. Mapping the combined 87 MiB arena
-// makes the browser reserve/copy its unused gaps on every frame.
-EM_JS(void, browser_upload_pools, (const unsigned* entries, unsigned count), {
-  if (Asyncify.state === Asyncify.State.Rewinding) return Asyncify.handleAsync(async () => 0);
-  const started = performance.now(), pools = [];
-  const states = Module.browserStagingPools ||= new Map();
+// Queue writes copy only the used bytes. Mapping a staging buffer waits for
+// prior GPU work (including shader compilation) and stalls simulation/audio.
+EM_JS(void, browser_upload_pools, (void* queue, const unsigned* entries, unsigned count), {
+  const started = performance.now();
+  const gpuQueue = Module.browserGpuQueue = WebGPU.getJsObject(queue);
   let bytes = 0;
   for (let i = 0; i < count; i++) {
-    const at = (entries >>> 2) + i * 3, id = HEAPU32[at], size = HEAPU32[at+2];
+    const at = (entries >>> 2) + i * 3;
+    const size = HEAPU32[at+2], data = HEAPU32[at+1];
     if (!size) continue;
-    let state = states.get(id);
-    if (!state) { state = {buffer:WebGPU.getJsObject(id), size:0, capacity:0, promise:null}; states.set(id,state); }
-    pools.push({state, data:HEAPU32[at+1], size}); bytes += size;
+    // WebGPU needs an ordinary buffer, not the shared WASM heap. Reuse one
+    // scratch allocation: writeBuffer snapshots it before returning.
+    let scratch = Module.gpuUploadScratch;
+    if (!scratch || scratch.length < size)
+      scratch = Module.gpuUploadScratch = new Uint8Array(2 ** Math.ceil(Math.log2(size)));
+    scratch.set(HEAPU8.subarray(data, data + size));
+    gpuQueue.writeBuffer(WebGPU.getJsObject(HEAPU32[at]), 0, scratch, 0, size);
+    bytes += size;
   }
-  const copy = () => {
-    for (const p of pools) {
-      new Uint8Array(p.state.buffer.getMappedRange(0,p.size)).set(HEAPU8.subarray(p.data,p.data+p.size));
-      p.state.buffer.unmap(); p.state.size=0; p.state.promise=null;
-    }
-    const phase = Module.framePhases ||= {};
-    phase.uploadMs = (phase.uploadMs || 0) + performance.now() - started;
-    phase.uploadBytes = (phase.uploadBytes || 0) + bytes;
-  };
-  if (pools.every(p => p.state.buffer.mapState === 'mapped' && p.state.size >= p.size)) { copy(); return; }
-  return Asyncify.handleAsync(async () => {
-    // A long first mapping means the GPU process is still compiling the
-    // prepared pipelines; let the launcher explain the wait.
-    const waitTimer = setTimeout(() => Module.onUploadWait?.(), 1500);
-    await Promise.all(pools.map(async p => {
-      const state=p.state; await state.promise;
-      if (state.buffer.mapState === 'mapped' && state.size < p.size) {state.buffer.unmap();state.size=0;}
-      if (state.buffer.mapState !== 'mapped') {
-        state.capacity=Math.max(state.capacity,Math.min(state.buffer.size,2**Math.ceil(Math.log2(p.size))));
-        state.size=state.capacity;
-        await state.buffer.mapAsync(GPUMapMode.WRITE,0,state.size);
-      }
-    }));
-    clearTimeout(waitTimer);
-    copy();
-  });
-});
-// Queue next frame's mapping after submission, so it resolves during VI pacing.
-EM_JS(void, browser_remap_pools, (const unsigned* entries, unsigned count), {
-  for (let i=0;i<count;i++) {
-    const at=(entries>>>2)+i*3, size=HEAPU32[at+2];
-    if (!size) continue;
-    const state=Module.browserStagingPools.get(HEAPU32[at]);
-    // Keep the high-water capacity: shrinking a quiet frame's mapping forces
-    // the next effect burst to wait for a fresh map behind shader compilation.
-    state.capacity=Math.max(state.capacity,Math.min(state.buffer.size,2**Math.ceil(Math.log2(size))));
-    state.size=state.capacity;
-    state.promise=state.buffer.mapAsync(GPUMapMode.WRITE,0,state.size);
-    state.promise.catch(()=>{}); // The next upload observes and reports failures.
-  }
+  const phase = Module.framePhases ||= {};
+  phase.uploadMs = (phase.uploadMs || 0) + performance.now() - started;
+  phase.uploadBytes = (phase.uploadBytes || 0) + bytes;
 });
 #endif
 #include "frame.hpp"
@@ -289,7 +257,7 @@ void pace_frame_start() {
 
 void map_staging_buffer(size_t slot, bool releaseSlotOnCompletion = false) {
 #ifdef __EMSCRIPTEN__
-  // CPU recording uses its own arena; map GPU pools after their sizes are known.
+  // CPU recording uses its own arena; queued writes need no GPU mapping.
   g_mappingStates[slot].store(BufferMapState::Mapped, std::memory_order_release);
   if (releaseSlotOnCompletion) g_stagingSlots.release(slot);
   return;
@@ -513,7 +481,7 @@ void initialize() {
 #ifdef __EMSCRIPTEN__
     constexpr uint64_t capacities[]{VertexBufferSize, UniformBufferSize, IndexBufferSize, StorageBufferSize, TextureUploadSize};
     for (size_t pool = 0; pool < 5; ++pool)
-      createBuffer(g_browserStagingPools[i][pool], wgpu::BufferUsage::MapWrite | wgpu::BufferUsage::CopySrc,
+      createBuffer(g_browserStagingPools[i][pool], wgpu::BufferUsage::CopyDst | wgpu::BufferUsage::CopySrc,
                    capacities[pool], label.c_str());
 #else
     createBuffer(g_stagingBuffers[i], wgpu::BufferUsage::MapWrite | wgpu::BufferUsage::CopySrc, StagingBufferSize,
@@ -652,7 +620,7 @@ void shutdown() {
   g_stagingBuffers.fill({});
 #ifdef __EMSCRIPTEN__
   for (auto& pools : g_browserStagingPools) pools.fill({});
-  EM_ASM({Module.browserStagingPools?.clear();});
+  EM_ASM({delete Module.gpuUploadScratch; delete Module.browserGpuQueue;});
   g_browserStagingBytes.clear();
   g_browserStagingBytes.shrink_to_fit();
 #endif
@@ -819,7 +787,7 @@ void end_frame(EndFrameCallback callback) {
     upload(packet.indices, IndexBufferSize);
     upload(packet.storage, StorageBufferSize);
     if constexpr (UseTextureBuffer) upload(packet.textureUpload, TextureUploadSize);
-    browser_upload_pools(entries, pool);
+    browser_upload_pools(g_queue.Get(), entries, pool);
 #else
     g_stagingBuffers[stagingSlot].Unmap();
 #endif
@@ -838,9 +806,6 @@ void end_frame(EndFrameCallback callback) {
     if (callback) {
       callback(encoder, std::move(afterSubmitCallbacks));
     }
-#ifdef __EMSCRIPTEN__
-    browser_remap_pools(entries, pool);
-#endif
     g_frameSlots.release(frameSlot);
     expire_cached_bind_groups();
     map_staging_buffer(stagingSlot, true);

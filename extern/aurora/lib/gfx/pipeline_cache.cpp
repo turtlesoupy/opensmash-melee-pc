@@ -1225,6 +1225,11 @@ bool get_pipeline(PipelineRef ref, wgpu::RenderPipeline& pipeline) {
   if (it == g_pipelines.end()) {
     return false;
   }
+#ifdef __EMSCRIPTEN__
+  // Newly encountered effects compile off the GPU submission path. Skip only
+  // their unready draws; startup waits for all initial pipelines before reveal.
+  if (!it->second.pipeline && !gx::take_browser_pipeline(ref, it->second.pipeline)) return false;
+#endif
   pipeline = it->second.pipeline;
   return true;
 }

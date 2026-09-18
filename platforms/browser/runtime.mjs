@@ -1,12 +1,23 @@
+import {checkGraphics} from './gpu-preflight.mjs';
 import {migrateLegacySaves} from './save-migration.mjs';
 import {createDiscCache} from './disc-cache.mjs';
 /** OpenSmash launcher protocol; upstream owns game logic, GX, and mixing. */
 const prefix=location.pathname.startsWith('/melee/')?'/melee':'';
 const base=prefix+'/engine/';
 const report=(type,data={},transfer=[])=>parent.postMessage({type,...data},location.origin,transfer);
-const fail=error=>report('error',{message:error?.stack||String(error)});
+const diagnostics=[];
+let failed=false,rejectRuntime;
+const fail=error=>{
+ if(failed)return;failed=true;
+ const reason=error?.stack||error?.message||(typeof error==='string'&&error.trim())||'Melee initialization failed without an error message.';
+ const message=[reason,...diagnostics].join('\n');
+ rejectRuntime?.(Error(message));report('error',{message});
+};
+window.addEventListener('error',event=>fail(event.error||event.message));
+window.addEventListener('unhandledrejection',event=>fail(event.reason));
 let resolveRuntime;
-const runtimeReady=new Promise(resolve=>resolveRuntime=resolve);
+const runtimeReady=new Promise((resolve,reject)=>{resolveRuntime=resolve;rejectRuntime=reject;});
+void runtimeReady.catch(()=>{});
 let directSurface=false;
 let options,selection,ready=false,presentPending=false,playable=false,introReported=false;
 let started=0,lastTime=0,lastFrame=0,lastStamp=0,presented=0,combatFrames=0;
@@ -109,7 +120,7 @@ function onFrame(frame){
  present();
 }
 window.Module={onUploadWait:()=>{if(!playable)report('status',{message:'Compiling graphics for your GPU…'});},onGraphicsPreparation:(done,total)=>report('status',{message:done===total?'Compiling graphics for your GPU…':`Preparing graphics… ${Math.floor(done*100/total)}%`}),canvas:document.querySelector('#canvas'),onFrame,onAudio:mix,audioRequested,
- print:text=>report('log',{text,message:text}),printErr:text=>report('log',{text,message:text}),
+ print:text=>report('log',{text,message:text}),printErr:text=>{diagnostics.push(String(text).slice(-2000));if(diagnostics.length>12)diagnostics.shift();report('log',{text,message:text});},
  onRuntimeInitialized:()=>resolveRuntime(),onAbort:fail};
 const script=document.createElement('script');script.src='./melee_browser.js';script.onerror=()=>fail(Error('Build the upstream Melee engine before launching.'));document.head.append(script);
 async function select(data){
@@ -134,8 +145,11 @@ window.addEventListener('message',async event=>{
   if(data.type==='input'){if(selection)Module._direct_set_pad(...data.values);return;}
   if(data.type==='confirm'){setPad([0,256,0x80808080,0,1]);setPad([0,0,0x80808080,0,1]);return;}
   if(data.type==='select'){await select(data);return;}
+  if(failed)return;
   if(data.type!=='start'||options)return;options={...data,audio:window.openSmashAudioRing||data.audio};
   delete window.openSmashAudioRing;
+  report('status',{message:'Checking WebGPU graphics support…'});
+  await checkGraphics();
   report('status',{message:'Checking your local Melee disc…'});
   const {verifyDisc}=await import(base+'verify-disc.mjs');
   if(!data.discVerified)await verifyDisc(data.iso,bytes=>report('status',{message:'Checking your game… '+Math.floor(bytes/data.iso.size*100)+'%'}));

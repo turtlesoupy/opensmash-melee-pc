@@ -104,3 +104,33 @@ These tests establish the listed scenarios, not exhaustive frame-by-frame
 identity for every possible match or a completed playthrough of every mode.
 Native desktop builds and mobile browser performance need their own validation.
 
+
+### Browser graphics startup failures
+
+The browser build requires WebGPU; the presence of `navigator.gpu` alone is
+insufficient. Before disc verification, the launcher probes a compatibility-level,
+high-performance adapter and creates a temporary device using Aurora's selected
+texture features and limits (see `gpu-preflight.mjs` and `extern/aurora/lib/webgpu/gpu.cpp`).
+It destroys that device immediately. Actual engine initialization can still fail
+later; runtime aborts, uncaught exceptions, and rejected promises are reported to
+the launcher with recent engine output. A failed probe does not modify the disc.
+
+Linux/NVIDIA compatibility depends on Chromium, its graphics configuration, the
+window system, and the driver. One user reported a visibly rendered match on
+NixOS / Wayland, Chromium 152.0.7977.82, RTX 4090, NVIDIA 595.45.04 with:
+
+```sh
+chromium --ozone-platform=wayland --use-angle=vulkan --enable-features=VulkanFromANGLE,ForceEnableWebGpuInterop
+```
+
+This is a user-reported workaround, not a tested support guarantee. In the same
+report, adding the separate `Vulkan` feature produced a blank desktop window
+even though internal screenshots showed rendering. Check `chrome://gpu` when
+collecting diagnostics, and include the launcher's error and engine output.
+
+There is no browser WebGL fallback in the current build: CMake enables Aurora's
+WebGPU backend, and its rendering implementation uses WebGPU devices, pipelines,
+and storage buffers. Changing Chromium's ANGLE backend does not replace that
+API requirement. A WebGL fallback would require a separate renderer integration
+and correctness/performance validation, rather than a launcher flag. The probe
+must remain aligned with Aurora when its device requirements change.

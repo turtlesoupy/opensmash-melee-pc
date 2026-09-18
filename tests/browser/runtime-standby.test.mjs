@@ -11,7 +11,7 @@ test('standby defers native initialization until Play and installs assets before
   performance,console,setTimeout,clearTimeout,Uint8Array,Uint32Array,Int32Array,Float32Array,Atomics,
   navigator:{userAgent:'test',hardwareConcurrency:4},
   fetch:async()=>({ok:true,arrayBuffer:async()=>new ArrayBuffer(64)}),
-  migrateLegacySaves:()=>[],createDiscCache:()=>({read(){}}),
+  migrateLegacySaves:()=>[],createDiscCache:()=>({read(){}}),checkGraphics:async()=>{},
  });
  context.window=context;context.addEventListener=(_type,callback)=>{receive=callback;};
  const source=readFileSync(new URL('../../platforms/browser/runtime.mjs',import.meta.url),'utf8')

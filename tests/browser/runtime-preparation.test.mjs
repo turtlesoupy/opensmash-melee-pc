@@ -3,16 +3,17 @@ import assert from 'node:assert/strict';
 import vm from 'node:vm';
 import {readFileSync} from 'node:fs';
 
-function runtime(){
+function runtime(holdForTrailer=false){
  let now=0,intro=2,preparation=1,finished=0;
  const canvas={style:{}},events=[];
  const context=vm.createContext({location:{pathname:'/',origin:'http://localhost'},parent:{postMessage:data=>events.push(data)},document:{querySelector:()=>canvas,createElement:()=>({}),head:{append(){}}},performance:{now:()=>now},console,setTimeout,clearTimeout,Uint32Array,Int32Array,Float32Array,Atomics});
- context.window=context;context.addEventListener=()=>{};
+ let message;context.window=context;context.addEventListener=(type,fn)=>{if(type==='message')message=fn;};
  const source=readFileSync(new URL('../../platforms/browser/runtime.mjs',import.meta.url),'utf8').replace(/^import .*;\n/gm,'');
  vm.runInContext(source,context);
  Object.assign(context.Module,{_direct_scene:()=>0x202,_direct_scene_kind:()=>2,_opensmash_intro_state:()=>intro,_opensmash_preparation_state:()=>preparation,_opensmash_finish_preparation:()=>{finished++;preparation=3;},_opensmash_finish_intro_preparation:()=>{intro=2;},FS:{syncfs(){}}});
  vm.runInContext('selection={launch:{mode:0}};options={};directSurface=true;',context);
- return {canvas,events,module:context.Module,get finished(){return finished;},state(i,p){intro=i;preparation=p;},frame(dt=1000/60){now+=dt;context.Module.onFrame(Math.round(now));}};
+ if(holdForTrailer)vm.runInContext('selection.holdForTrailer=true;',context);
+ return {reveal:()=>message({source:context.parent,origin:'http://localhost',data:{type:'trailer-reveal'}}),get intro(){return intro;},canvas,events,module:context.Module,get finished(){return finished;},state(i,p){intro=i;preparation=p;},frame(dt=1000/60){now+=dt;context.Module.onFrame(Math.round(now));}};
 }
 test('VS stays visible; first match and resume-pending frames stay hidden',()=>{
  const r=runtime();r.frame();assert.equal(r.canvas.style.visibility,'visible');
@@ -56,4 +57,19 @@ test('stable CPU frames cannot release a scene with shaders still compiling',()=
  const r=runtime();r.module.browserPipelinePending=2;r.state(3,2);
  for(let i=0;i<60;i++)r.frame();assert.equal(r.finished,0);
  r.module.browserPipelinePending=0;r.frame();assert.equal(r.finished,1);
+});
+
+test('trailer holds the warmed VS sequence until an explicit reveal',async()=>{
+ const r=runtime(true);r.state(1,1);
+ await r.reveal();assert.equal(r.intro,1);
+ for(let i=0;i<90;i++)r.frame();
+ assert.equal(r.intro,1);assert.equal(r.events.filter(e=>e.type==='trailer-ready').length,1);
+ assert.equal(r.canvas.style.visibility,'hidden');
+ await r.reveal();assert.equal(r.intro,2);r.frame();
+ assert.equal(r.canvas.style.visibility,'visible');
+ assert.equal(r.events.filter(e=>e.type==='intro').length,1);
+});
+test('ordinary launches release the prepared VS scene automatically',()=>{
+ const r=runtime();r.state(1,1);for(let i=0;i<40;i++)r.frame();
+ assert.equal(r.intro,2);assert.equal(r.events.filter(e=>e.type==='trailer-ready').length,0);
 });

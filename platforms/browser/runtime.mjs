@@ -19,6 +19,7 @@ let resolveRuntime;
 const runtimeReady=new Promise((resolve,reject)=>{resolveRuntime=resolve;rejectRuntime=reject;});
 void runtimeReady.catch(()=>{});
 let directSurface=false;
+let trailerReady=false,trailerReleased=false;
 let options,selection,ready=false,presentPending=false,playable=false,introReported=false;
 let started=0,lastTime=0,lastFrame=0,lastStamp=0,presented=0,combatFrames=0;
 let audioFrames=0,audioPeak=0,audioOverruns=0,phase=0,previous=[0,0];
@@ -101,7 +102,11 @@ function onFrame(frame){
     }).catch(fail).finally(()=>clearTimeout(timer));
    }
   }else{
-   if(intro===1)Module._opensmash_finish_intro_preparation();
+   if(intro===1){
+    if(selection.holdForTrailer&&!trailerReleased){
+     if(!trailerReady){trailerReady=true;report('trailer-ready');}
+    }else Module._opensmash_finish_intro_preparation();
+   }
    if(Module._opensmash_preparation_state()===2)Module._opensmash_finish_preparation();
   }
  }
@@ -140,6 +145,12 @@ window.addEventListener('message',async event=>{
  if(event.source!==parent||event.origin!==location.origin)return;
  const data=event.data;
  try{
+  if(data.type==='trailer-reveal'){
+   if(selection?.holdForTrailer&&trailerReady&&!trailerReleased){
+    trailerReleased=true;Module._opensmash_finish_intro_preparation();
+   }
+   return;
+  }
   if(data.type==='surface'){directSurface=!!data.direct;return;}
   if(data.type==='pad'){setPad(data.values);return;}
   if(data.type==='input'){if(selection)Module._direct_set_pad(...data.values);return;}

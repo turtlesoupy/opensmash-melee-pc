@@ -105,6 +105,9 @@ BOOL DVDSetAutoInvalidation(BOOL v) { return v; }
 int DVDSetAutoFatalMessaging(BOOL v) { return v; }
 void DVDPause(void) {}
 void DVDResume(void) {}
+/* aurora/dvd.h surface used by src/pc outside the DVD API proper. */
+s32 aurora_dvd_base_entry_count(void) { return (s32)entries; }
+void aurora_dvd_set_locale_extension(const char *ext) { (void)ext; /* GALE01 only */ }
 s32 DVDConvertPathToEntrynum(const char *path) {
   if (!fst || !path)
     return -1;

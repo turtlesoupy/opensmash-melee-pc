@@ -19,7 +19,7 @@ if not a.source:
 def build(s):
  rel=str(s.relative_to(ROOT));base=out/rel;base.parent.mkdir(parents=True,exist_ok=True);ii=base.with_suffix('.i');cc=base.with_suffix('.lowered.c');obj=base.with_suffix('.o');log=base.with_suffix('.log')
  key=hashlib.sha256(s.read_bytes()+(ROOT/'tools/browser/disc_lower.cpp').read_bytes()+(ROOT/'tools/browser/disc_access.h').read_bytes()).hexdigest()
- commands=[[clang,*flags,'-E',str(s),'-o',str(ii)],[lower,str(ii),'--target=wasm32-unknown-emscripten'],[str(sdk/'upstream/emscripten/emcc'),'-Wno-everything','-ferror-limit=5','-O2','-pthread','-ffp-contract=off','-fno-strict-aliasing','-fwrapv','-c',str(cc),'-o',str(obj)]]
+ commands=[[clang,*flags,'-E',str(s),'-o',str(ii)],[lower,str(ii),'--target=wasm32-unknown-emscripten'],[str(sdk/'upstream/emscripten/emcc'),'-Wno-everything','-ferror-limit=5','-O2','-pthread','-ffp-contract=off','-fno-fast-math','-fno-builtin-sinf','-fno-builtin-cosf','-fno-builtin-tanf','-fno-builtin-atanf','-ftrivial-auto-var-init=zero','-fno-strict-aliasing','-fwrapv','-c',str(cc),'-o',str(obj)]]
  with log.open('w') as err:
   for i,cmd in enumerate(commands):
    if i==1:

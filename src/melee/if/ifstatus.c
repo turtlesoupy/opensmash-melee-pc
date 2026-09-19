@@ -210,28 +210,28 @@ void ifStatus_802F4B84(IfDamageState* state, s32 is_stamina)
     PAD_STACK(8);
 }
 
-/* `aj` is the first entry of the model's matanim table. Upstream reaches it
- * by casting the table pointer itself to HSD_AnimJoint* and taking `->child`,
- * so these chains start one level below that. */
-static inline HSD_TexAnim* get_digit_texanim(HSD_AnimJoint* aj)
+/* `mj` is the first entry of the model's matanim table, i.e. upstream's
+ * `(*anim_base)[0]`. Every hop below is a 32-bit big-endian disc slot, so the
+ * chain has to be walked through DP() instead of being dereferenced. */
+static inline HSD_TexAnim* get_digit_texanim(HSD_MatAnimJoint* mj)
 {
-    HSD_AnimJoint* j1 = DP(HSD_AnimJoint, aj->child);
-    HSD_AObjDesc* ad = DP(HSD_AObjDesc, j1->aobjdesc);
-    return (HSD_TexAnim*) DP(HSD_FObjDesc, ad->fobjdesc);
+    HSD_MatAnimJoint* child = DP(HSD_MatAnimJoint, mj->child);
+    HSD_MatAnim* matanim = DP(HSD_MatAnim, child->matanim);
+    return DP(HSD_TexAnim, matanim->texanim);
 }
 
-static inline HSD_TexAnim* get_percent_texanim(HSD_AnimJoint* aj)
+static inline HSD_TexAnim* get_percent_texanim(HSD_MatAnimJoint* mj)
 {
-    HSD_AnimJoint* j1 = DP(HSD_AnimJoint, aj->child);
-    HSD_AnimJoint* n1 = DP(HSD_AnimJoint, j1->next);
-    HSD_AnimJoint* n2 = DP(HSD_AnimJoint, n1->next);
-    HSD_AnimJoint* n3 = DP(HSD_AnimJoint, n2->next);
-    HSD_AObjDesc* ad = DP(HSD_AObjDesc, n3->aobjdesc);
-    return (HSD_TexAnim*) DP(HSD_FObjDesc, ad->fobjdesc);
+    HSD_MatAnimJoint* child = DP(HSD_MatAnimJoint, mj->child);
+    HSD_MatAnimJoint* n1 = DP(HSD_MatAnimJoint, child->next);
+    HSD_MatAnimJoint* n2 = DP(HSD_MatAnimJoint, n1->next);
+    HSD_MatAnimJoint* n3 = DP(HSD_MatAnimJoint, n2->next);
+    HSD_MatAnim* matanim = DP(HSD_MatAnim, n3->matanim);
+    return DP(HSD_TexAnim, matanim->texanim);
 }
 
 static inline void ifStatus_InitDamageDigits(IfDamageState* state,
-                                             HSD_MatAnimJoint** anim_base)
+                                             HSD_MatAnimJoint*** anim_base)
 {
     HSD_JObj* hundreds_jobj;
     HSD_JObj* tens_jobj;
@@ -240,8 +240,8 @@ static inline void ifStatus_InitDamageDigits(IfDamageState* state,
 
     ones_jobj = state->jobjs[Ones];
     digit = state->damage_percent % 10;
-    HSD_AnimJoint* aj = (HSD_AnimJoint*) (uintptr_t) ((DiscU32*) anim_base[0])[0].v;
-    HSD_TexAnim* digit_anim = get_digit_texanim(aj);
+    HSD_MatAnimJoint* mj = DP(HSD_MatAnimJoint, ((DiscU32*) *anim_base)[0].v);
+    HSD_TexAnim* digit_anim = get_digit_texanim(mj);
     HSD_TObjAddAnimAll(ones_jobj->u.dobj->mobj->tobj, digit_anim);
     HSD_TObjReqAnimAll(ones_jobj->u.dobj->mobj->tobj, 2.0F * digit);
     HSD_AObjSetRate(ones_jobj->u.dobj->mobj->tobj->aobj, 0.0F);
@@ -372,7 +372,7 @@ void ifStatus_802F4EDC(HSD_GObj* gobj)
     GXColor normal_color;
     UNUSED u8 pad_c[24];
     HSD_TObj* tobj;
-    HSD_MatAnimJoint** anim_base;
+    HSD_MatAnimJoint*** anim_base;
     s32 i;
     u8 digit;
     f32 ones_offset;
@@ -399,7 +399,7 @@ void ifStatus_802F4EDC(HSD_GObj* gobj)
 
     /* Check for death animation flag (bit 7 of flags byte at offset 0x10) */
     if (state->flags.explode_animation) {
-        ifStatus_PercentOnDeathAnimationThink(state, i, (u32) ptr);
+        ifStatus_PercentOnDeathAnimationThink(state, i, 0);
         return;
     }
 
@@ -413,17 +413,18 @@ void ifStatus_802F4EDC(HSD_GObj* gobj)
 
         HSD_JObjRemoveAnim(jobj);
 
-        anim_base = (HSD_MatAnimJoint**) &hud->janim_selection_joints;
-        lb_8000C07C(jobj, 1, (DiscU32*) hud->jobj_desc_parent,
-                    (DiscU32*) anim_base[0],
-                    (DiscU32*) anim_base[1]);
+        anim_base = &hud->damage_num_matanims;
+        lb_8000C07C(jobj, 1, (DiscU32*) hud->damage_num_anims,
+                    (DiscU32*) *anim_base,
+                    (DiscU32*) hud->damage_num_shapeanims);
         HSD_JObjReqAnimAll(jobj, 0.0F);
 
         digit_jobj = state->jobjs[Percent];
         if (digit_jobj != NULL) {
             tobj = digit_jobj->u.dobj->mobj->tobj;
-            HSD_AnimJoint* aj = (HSD_AnimJoint*) (uintptr_t) ((DiscU32*) anim_base[0])[0].v;
-            HSD_TObjAddAnimAll(tobj, get_percent_texanim(aj));
+            HSD_MatAnimJoint* mj =
+                DP(HSD_MatAnimJoint, ((DiscU32*) *anim_base)[0].v);
+            HSD_TObjAddAnimAll(tobj, get_percent_texanim(mj));
             if (Player_GetMoreFlagsBit2((s8) state->player_slot)) {
                 HSD_TObjReqAnimAll(tobj, 1.0F);
             } else {
@@ -440,13 +441,14 @@ void ifStatus_802F4EDC(HSD_GObj* gobj)
     HSD_JObjAnimAll(jobj);
 
     {
-        HSD_AnimJoint** anim_joints = &hud->janim_selection_joints;
+        HSD_MatAnimJoint*** anim_joints = &hud->damage_num_matanims;
         HSD_JObj* post_digit_jobj;
 
         post_digit_jobj = state->jobjs[Ones];
         digit = state->damage_percent % 10;
-        HSD_AnimJoint* aj = (HSD_AnimJoint*) (uintptr_t) ((DiscU32*) anim_joints[0])[0].v;
-        HSD_TexAnim* digit_anim = get_digit_texanim(aj);
+        HSD_MatAnimJoint* mj =
+            DP(HSD_MatAnimJoint, ((DiscU32*) *anim_joints)[0].v);
+        HSD_TexAnim* digit_anim = get_digit_texanim(mj);
         HSD_TObjAddAnimAll(post_digit_jobj->u.dobj->mobj->tobj, digit_anim);
         HSD_TObjReqAnimAll(post_digit_jobj->u.dobj->mobj->tobj, 2.0F * digit);
         HSD_AObjSetRate(post_digit_jobj->u.dobj->mobj->tobj->aobj, 0.0F);
@@ -663,19 +665,19 @@ void ifStatus_802F5E50(HSD_GObj* gobj, s32 arg1)
 
 static inline HSD_JObj* ifStatus_GetDamageJObj(HSD_JObj* jobj, s32 i)
 {
-    HSD_GObj* node = (HSD_GObj*) jobj;
-    return (HSD_JObj*) ifStatus_802F6194(node, i);
+    HSD_JObj* node = jobj;
+    return ifStatus_802F6194(node, i);
 }
 
 static inline HSD_JObj* ifStatus_LoadDamageJObj(HudIndex* hud)
 {
-    return HSD_JObjLoadJoint(hud->unk258);
+    return HSD_JObjLoadJoint(hud->damage_num_joint);
 }
 
 HSD_GObj* ifStatus_802F5EC0(IfDamageState* state, s32 player_idx)
 {
     HSD_GObj* gobj;
-    HSD_MatAnimJoint** anim_base;
+    HSD_MatAnimJoint*** anim_base;
     HSD_JObj* jobj;
     Vec3* vec;
     HSD_TObj* tobj;
@@ -696,10 +698,10 @@ HSD_GObj* ifStatus_802F5EC0(IfDamageState* state, s32 player_idx)
     }
     state->flags.animation_status_id = 0;
     HSD_JObjRemoveAnim(jobj);
-    anim_base = (HSD_MatAnimJoint**) &hud->janim_selection_joints;
-    lb_8000C07C(jobj, 0, (DiscU32*) hud->jobj_desc_parent,
-                (DiscU32*) anim_base[0],
-                (DiscU32*) anim_base[1]);
+    anim_base = &hud->damage_num_matanims;
+    lb_8000C07C(jobj, 0, (DiscU32*) hud->damage_num_anims,
+                (DiscU32*) *anim_base,
+                (DiscU32*) hud->damage_num_shapeanims);
     HSD_JObjReqAnimAll(jobj, 0.0f);
     HSD_JObjAnimAll(jobj);
     vec = ifAll_GetPlayerHUDPosition((u8) player_idx);
@@ -711,8 +713,9 @@ HSD_GObj* ifStatus_802F5EC0(IfDamageState* state, s32 player_idx)
     }
     if (state->jobjs[3] != NULL) {
         tobj = state->jobjs[3]->u.dobj->mobj->tobj;
-        HSD_AnimJoint* aj = (HSD_AnimJoint*) (uintptr_t) ((DiscU32*) anim_base[0])[0].v;
-        HSD_TObjAddAnimAll(tobj, get_percent_texanim(aj));
+        HSD_MatAnimJoint* mj =
+            DP(HSD_MatAnimJoint, ((DiscU32*) *anim_base)[0].v);
+        HSD_TObjAddAnimAll(tobj, get_percent_texanim(mj));
         if (Player_GetMoreFlagsBit2((s8) state->player_slot) != 0) {
             HSD_TObjReqAnimAll(tobj, 1.0f);
         } else {
@@ -730,22 +733,33 @@ HSD_GObj* ifStatus_802F5EC0(IfDamageState* state, s32 player_idx)
 
 /* Returns the n-th child of the JObj (the decomp addressed it through
  * HSD_GObj's field offsets, which only line up on GameCube). */
-HSD_GObj* ifStatus_802F6194(HSD_GObj* node, s32 n)
+HSD_JObj* ifStatus_802F6194(HSD_JObj* node, s32 n)
 {
-    HSD_JObj* jobj = (HSD_JObj*) node;
-    HSD_JObj* cur;
+    HSD_JObj* gx_head;
+    HSD_JObj* gx_next;
+    HSD_JObj* gx_cur;
     s32 i;
-    if (jobj == NULL || n < 0) {
+    if ((node == NULL) || (n < 0)) {
         return NULL;
     }
-    cur = jobj->child;
-    for (i = 0; i < n && cur != NULL; i++) {
-        cur = cur->next;
+    if (node == NULL) {
+        gx_head = NULL;
+    } else {
+        gx_head = node->child;
     }
-    return (HSD_GObj*) cur;
+    gx_cur = gx_head;
+    for (i = 0; i < n && gx_cur != NULL; i++) {
+        if (gx_cur == NULL) {
+            gx_next = NULL;
+        } else {
+            gx_next = gx_cur->next;
+        }
+        gx_cur = gx_next;
+    }
+    return gx_cur;
 }
 
-inline void ifStatus_CreateMarkGObj(HSD_GObj** gobj)
+static inline void ifStatus_CreateMarkGObj(HSD_GObj** gobj)
 {
     *gobj = GObj_Create(0xE, 0xF, 0);
 }
@@ -778,7 +792,7 @@ HSD_GObj* ifStatus_802F61FC(IfDamageState* state, s32 player_idx)
             HSD_ASSERTREPORT(0x30A, 0,
                              "Error : gobj dont't get (ifAddMark)\n");
         }
-        jobj = HSD_JObjLoadJoint((HSD_Joint*) hud->unk268);
+        jobj = HSD_JObjLoadJoint(hud->damage_mark_joint);
         if (jobj == NULL) {
             HSD_ASSERTREPORT(0x30E, 0,
                              "Error : jobj dont't get (ifAddMark)\n");
@@ -791,9 +805,9 @@ HSD_GObj* ifStatus_802F61FC(IfDamageState* state, s32 player_idx)
         jobj = state->next->hsd_obj;
     }
     tobj = jobj->child->u.dobj->mobj->tobj;
-    lb_8000C07C(jobj, 0, (DiscU32*) hud->unk26C,
-                (DiscU32*) hud->unk270,
-                (DiscU32*) hud->unk274);
+    lb_8000C07C(jobj, 0, (DiscU32*) hud->damage_mark_anims,
+                (DiscU32*) hud->damage_mark_matanims,
+                (DiscU32*) hud->damage_mark_shapeanims);
     if (chara == CKind_MasterH || (u32) (chara - CKind_GKoops) <= 1) {
         chara = CKind_Boy;
     }
@@ -875,16 +889,21 @@ void ifStatus_802F66A4(void)
     arch = ifAll_GetArchive();
     lbArchive_LoadSections(*arch, (void**) &num_tbl, num_models_name,
                            (void**) &mrk_tbl, mrk_models_name, 0);
-    num = (DynamicModelDesc*) (uintptr_t) num_tbl[0].v;
-    mrk = (DynamicModelDesc*) (uintptr_t) mrk_tbl[0].v;
-    hud->unk258 = DP(HSD_Joint, num->joint);
-    hud->jobj_desc_parent = DP(DiscU32, num->anims);
-    hud->janim_selection_joints = (HSD_AnimJoint*) DP(DiscU32, num->matanims);
-    hud->janim_selection_textures = DP(DiscU32, num->shapeanims);
-    hud->unk268 = DP(HSD_Joint, mrk->joint);
-    hud->unk26C = DP(DiscU32, mrk->anims);
-    hud->unk270 = DP(DiscU32, mrk->matanims);
-    hud->unk274 = DP(DiscU32, mrk->shapeanims);
+    num = DP(DynamicModelDesc, num_tbl[0].v);
+    mrk = DP(DynamicModelDesc, mrk_tbl[0].v);
+    /* The three anim tables are arrays of 32-bit disc slots, not host
+     * pointers: the typed HudIndex fields only ever get cast back to
+     * DiscU32* before anything indexes them. */
+    hud->damage_num_joint = DP(HSD_Joint, num->joint);
+    hud->damage_num_anims = (HSD_AnimJoint**) DP(DiscU32, num->anims);
+    hud->damage_num_matanims = (HSD_MatAnimJoint**) DP(DiscU32, num->matanims);
+    hud->damage_num_shapeanims =
+        (HSD_ShapeAnimJoint**) DP(DiscU32, num->shapeanims);
+    hud->damage_mark_joint = DP(HSD_Joint, mrk->joint);
+    hud->damage_mark_anims = (HSD_AnimJoint**) DP(DiscU32, mrk->anims);
+    hud->damage_mark_matanims = (HSD_MatAnimJoint**) DP(DiscU32, mrk->matanims);
+    hud->damage_mark_shapeanims =
+        (HSD_ShapeAnimJoint**) DP(DiscU32, mrk->shapeanims);
 #ifdef MUST_MATCH
     {
         s32 reset;
@@ -919,8 +938,7 @@ void ifStatus_802F6804(void)
     s32 i;
     IfDamageState* v;
 
-    i = 0;
-    do {
+    for (i = 0; i < 6; i++) {
         v = &ifStatus_GetHUDInfo()->players[i & 0xFF];
         if (v->HUD_parent_entity != NULL) {
             HSD_GObjFree(v->HUD_parent_entity);
@@ -931,8 +949,7 @@ void ifStatus_802F6804(void)
             v->next = NULL;
         }
         ifStock_802FB650((s8) i & 0xFF);
-        i++;
-    } while (i < 6);
+    }
 }
 
 /// Hide Percentage Digits

@@ -30,7 +30,7 @@ extern unsigned direct_present_hook(unsigned,unsigned,unsigned);
 int direct_route(int original){direct_present_hook(19,0,0);if(!requested||routed||mode==4)return original;routed=1;return mode==1?GM_MENU:mode==3?GM_CLASSIC:mode==5?GM_ADVENTURE:mode==6?GM_ALLSTAR:GM_VS;}
 void direct_mode_loaded(int kind){
  if(!requested||configured||mode==4)return;
- *gmMainLib_GetUnlockedCharactersBitmaskPtr()=0x7ff;gmMainLib_804D3EE0->thing.x186A=0x7ff;
+ *gmMainLib_GetUnlockedCharactersBitmaskPtr()=0x7ff;gmMainLib_804D3EE0->thing.save_data.x186A=0x7ff;
  if ((kind == GM_CLASSIC && mode == 3) ||
      (kind == GM_ADVENTURE && mode == 5) ||
      (kind == GM_ALLSTAR && mode == 6)) {

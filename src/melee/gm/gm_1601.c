@@ -1,6 +1,8 @@
 #include "gm_1601.h"
 #include <stdlib.h>
 
+#include "pc/pc.h"
+
 #include <Runtime/platform.h>
 
 #include <melee/ft/forward.h>
@@ -33,6 +35,7 @@
 #include <melee/pl/plbonuslib.h>
 #include <melee/sc/types.h>
 #include <melee/ty/toy.h>
+#include <melee/ty/types.h>
 #include <sysdolphin/baselib/controller.h>
 #include <sysdolphin/baselib/gobjplink.h>
 #include <sysdolphin/baselib/hsd_3924.h>
@@ -506,7 +509,7 @@ char* gm_80160438(s32 ckind)
     }
 }
 
-bool gm_80160474(CharacterKind ckind, GameModeKind mode)
+s32 gm_80160474(CharacterKind ckind, GameModeKind mode)
 {
     switch (mode) {
     case GM_CLASSIC_GOVER:
@@ -537,7 +540,7 @@ char* gm_801604DC(CharacterKind ckind, GameModeKind mode)
         var_r3 = lbl_803B7A00[ckind];
         break;
     }
-    return Toy_8030813C(var_r3) + 4;
+    return Toy_8030813C(var_r3)->archive_name;
 }
 
 char* gm_80160564(CharacterKind ckind, GameModeKind mode)
@@ -557,7 +560,7 @@ char* gm_80160564(CharacterKind ckind, GameModeKind mode)
         var_r3 = lbl_803B7A00[ckind];
         break;
     }
-    return Toy_8030813C(var_r3) + 0x24;
+    return Toy_8030813C(var_r3)->symbol_name;
 }
 
 u8 gm_SelKindToUnlockIndex(SelectableCharacterKind selkind)
@@ -1085,29 +1088,6 @@ s32 fn_80161154(MatchEnd* arg0)
     }
 }
 
-struct gm_stats {
-    /* 0x00 */ u16 unk0;
-    /* 0x02 */ u8 pad2[2];
-    /* 0x04 */ u32 unk4;
-    /* 0x08 */ u32 unk8;
-    /* 0x0C */ u32 unkC;
-    /* 0x10 */ u32 unk10;
-    /* 0x14 */ u32 unk14;
-    /* 0x18 */ u16 unk18;
-    /* 0x1A */ u16 unk1A;
-    /* 0x1C */ u16 unk1C;
-    /* 0x1E */ u16 unk1E;
-    /* 0x20 */ u32 unk20;
-    /* 0x24 */ u32 unk24;
-    /* 0x28 */ u32 unk28;
-    /* 0x2C */ u32 unk2C;
-    /* 0x30 */ u32 unk30;
-    /* 0x34 */ u32 unk34;
-    /* 0x38 */ u32 unk38;
-    /* 0x3C */ u32 unk3C;
-    /* 0x40 */ u32 unk40;
-};
-
 static inline u32 fn_80161C90_count_players(MatchEnd* match_end)
 {
     u32 count = 0;
@@ -1121,31 +1101,23 @@ static inline u32 fn_80161C90_count_players(MatchEnd* match_end)
     return count;
 }
 
-void fn_80161C90(MatchEnd* arg0, int arg1, u16* arg2)
+void fn_80161C90(MatchEnd* arg0, int arg1, struct GmStats* s)
 {
     MatchPlayerData* p = &arg0->player_standings[arg1];
-    struct gm_stats* s = (struct gm_stats*) arg2;
     u32 count;
     s32 flag;
     s32 i;
 
-    s->unk0 = (s->unk0 + p->self_destructs > 0xFFFF)
-                  ? 0xFFFF
-                  : s->unk0 + p->self_destructs;
-    s->unk4 =
-        (s->unk4 + p->x38 > 0xFFFFFFFFU) ? 0xFFFFFFFFU : s->unk4 + p->x38;
-    s->unk8 =
-        (s->unk8 + p->x3C > 0xFFFFFFFFU) ? 0xFFFFFFFFU : s->unk8 + p->x3C;
-    s->unkC =
-        (s->unkC + p->x40 > 0xFFFFFFFFU) ? 0xFFFFFFFFU : s->unkC + p->x40;
-    s->unk10 =
-        (s->unk10 + p->x44 > 0xFFFFFFFFU) ? 0xFFFFFFFFU : s->unk10 + p->x44;
-    s->unk14 =
-        (s->unk14 + p->x48 > 0xFFFFFFFFU) ? 0xFFFFFFFFU : s->unk14 + p->x48;
-    if (s->unk18 < p->x4C) {
-        s->unk18 = p->x4C;
+    s->sd_count = SAT_ADD(s->sd_count, p->self_destructs, U16_MAX);
+    s->attacks_hit = SAT_ADD(s->attacks_hit, p->x38, U32_MAX);
+    s->attacks_total = SAT_ADD(s->attacks_total, p->x3C, U32_MAX);
+    s->damage_dealt = SAT_ADD(s->damage_dealt, p->x40, U32_MAX);
+    s->damage_taken = SAT_ADD(s->damage_taken, p->x44, U32_MAX);
+    s->damage_recovered = SAT_ADD(s->damage_recovered, p->x48, U32_MAX);
+    if (s->peak_damage < p->x4C) {
+        s->peak_damage = p->x4C;
     }
-    s->unk1A = (s->unk1A + 1 > 0xFFFF) ? 0xFFFF : s->unk1A + 1;
+    s->match_count = SAT_ADD(s->match_count, 1, U16_MAX);
     {
         if (arg1 == fn_80165548(arg0, fn_80165418(arg0), fn_801654A0(arg0))) {
             flag = 1;
@@ -1153,7 +1125,7 @@ void fn_80161C90(MatchEnd* arg0, int arg1, u16* arg2)
             flag = 0;
         }
         if (flag != 0) {
-            s->unk1C = (s->unk1C + 1 > 0xFFFF) ? 0xFFFF : s->unk1C + 1;
+            s->victories = SAT_ADD(s->victories, 1, U16_MAX);
         }
     }
     if (arg1 == fn_80161154(arg0)) {
@@ -1162,36 +1134,21 @@ void fn_80161C90(MatchEnd* arg0, int arg1, u16* arg2)
         flag = 0;
     }
     if (flag != 0) {
-        s->unk1E = (s->unk1E + 1 > 0xFFFF) ? 0xFFFF : s->unk1E + 1;
+        s->losses = SAT_ADD(s->losses, 1, U16_MAX);
     }
-    s->unk20 = (s->unk20 + arg0->frame_count / 60 > 0xFFFFFFFFU)
-                   ? 0xFFFFFFFFU
-                   : s->unk20 + arg0->frame_count / 60;
+    s->play_time = SAT_ADD(s->play_time, arg0->frame_count / 60, U32_MAX);
     count = fn_80161C90_count_players(arg0);
-    count = s->unk24 + count;
-    if (count > 0xFFFF) {
-        count = 0xFFFF;
-    }
-    s->unk24 = count;
-    s->unk28 =
-        (s->unk28 + p->x50 > 0xFFFFFFFFU) ? 0xFFFFFFFFU : s->unk28 + p->x50;
+    s->total_player_count = SAT_ADD(s->total_player_count, count, U16_MAX);
+    s->walk_distance = SAT_ADD(s->walk_distance, p->x50, U32_MAX);
     gmMainLib_8015EDBC()->x10 =
-        (p->x50 + gmMainLib_8015EDBC()->x10 > 0xFFFFFFFFU)
-            ? 0xFFFFFFFFU
-            : p->x50 + gmMainLib_8015EDBC()->x10;
-    s->unk2C =
-        (s->unk2C + p->x54 > 0xFFFFFFFFU) ? 0xFFFFFFFFU : s->unk2C + p->x54;
-    s->unk30 =
-        (s->unk30 + p->x58 > 0xFFFFFFFFU) ? 0xFFFFFFFFU : s->unk30 + p->x58;
-    s->unk34 =
-        (s->unk34 + p->x5C > 0xFFFFFFFFU) ? 0xFFFFFFFFU : s->unk34 + p->x5C;
+        SAT_ADD(p->x50, gmMainLib_8015EDBC()->x10, U32_MAX);
+    s->run_distance = SAT_ADD(s->run_distance, p->x54, U32_MAX);
+    s->fall_distance = SAT_ADD(s->fall_distance, p->x58, U32_MAX);
+    s->peak_height = SAT_ADD(s->peak_height, p->x5C, U32_MAX);
     if (arg0->match_kind == 2) {
-        s->unk38 = (s->unk38 + p->x60 > 0xFFFFFFFFU) ? 0xFFFFFFFFU
-                                                     : s->unk38 + p->x60;
-        s->unk3C = (s->unk3C + p->x64 > 0xFFFFFFFFU) ? 0xFFFFFFFFU
-                                                     : s->unk3C + p->x64;
-        s->unk40 = (s->unk40 + p->x68 > 0xFFFFFFFFU) ? 0xFFFFFFFFU
-                                                     : s->unk40 + p->x68;
+        s->coins_collected = SAT_ADD(s->coins_collected, p->x60, U32_MAX);
+        s->coins_swiped = SAT_ADD(s->coins_swiped, p->x64, U32_MAX);
+        s->coins_lost = SAT_ADD(s->coins_lost, p->x68, U32_MAX);
     }
 }
 
@@ -1226,7 +1183,7 @@ void fn_80162068(MatchEnd* match_end)
             }
             fd->fighter_kos[gm_CKindToSelKind(pdata_j->ckind)] = (u16) sum;
         }
-        fn_80161C90(match_end, i, &fd->sd_count);
+        fn_80161C90(match_end, i, &fd->stats);
     }
 }
 void fn_80162170(MatchEnd* arg0)
@@ -1275,7 +1232,7 @@ void fn_80162170(MatchEnd* arg0)
                 nt->play_time_by_fighter[gm_CKindToSelKind(p->ckind)] =
                     play_time;
             }
-            fn_80161C90(arg0, i, &nt->sd_count);
+            fn_80161C90(arg0, i, &nt->stats);
         }
     }
 }
@@ -1397,7 +1354,7 @@ void gm_SetupHumanResultsScreen(u8 arg0, u8 arg1)
 
     if ((u8) (arg1 - 7) <= 1) {
         u32* p = gmMainLib_GetMatchResetCounter();
-        *p = (*p + 1 > U32_MAX) ? U32_MAX : *p + 1;
+        *p = SAT_ADD(*p, 1, U32_MAX);
         return;
     }
     if (gm_GetCurrentGameMode() == GM_STAMINA_VS) {
@@ -1414,7 +1371,7 @@ void gm_SetupHumanResultsScreen(u8 arg0, u8 arg1)
             counter = gmMainLib_GetCoinMatchTotal();
             {
                 struct gmm_retval_EDBC* q = gmMainLib_8015EDBC();
-                q->x4 = (q->x4 + 1 > U32_MAX) ? U32_MAX : q->x4 + 1;
+                q->x4 = SAT_ADD(q->x4, 1, U32_MAX);
             }
             break;
         case MatchKind_Bonus:
@@ -1422,18 +1379,18 @@ void gm_SetupHumanResultsScreen(u8 arg0, u8 arg1)
             break;
         }
     }
-    *counter = (*counter + 1 > U32_MAX) ? U32_MAX : *counter + 1;
+    *counter = SAT_ADD(*counter, 1, U32_MAX);
     {
         struct gmm_retval_ED98* a = gmMainLib_8015ED98();
-        a->x0 = (a->x0 + 1 > U32_MAX) ? U32_MAX : a->x0 + 1;
+        a->x0 = SAT_ADD(a->x0, 1, U32_MAX);
     }
     {
         struct gmm_retval_EDB0* b = gmMainLib_8015EDB0();
-        b->x0 = ((u32) b->x0 + 1 > U32_MAX) ? U32_MAX : (u32) b->x0 + 1;
+        b->x0 = SAT_ADD((u32) b->x0, 1, U32_MAX);
     }
     {
         struct gmm_retval_EDBC* c = gmMainLib_8015EDBC();
-        c->x0 = ((u32) c->x0 + 1 > U32_MAX) ? U32_MAX : (u32) c->x0 + 1;
+        c->x0 = SAT_ADD((u32) c->x0, 1, U32_MAX);
     }
 }
 
@@ -2272,6 +2229,9 @@ bool gm_80164330(s32 arg0)
 
 bool gm_80164430(u16 arg0)
 {
+    if (pc_is_unlock_all_enabled()) {
+        return true;
+    }
     u16* temp_r31;
     s32 i;
     u8 stage_idx;
@@ -2380,6 +2340,9 @@ int gm_801647F8(u8 arg0)
 /// Is a specific character unlocked?
 bool gm_IsCKindUnlocked(u8 ckind)
 {
+    if (pc_is_unlock_all_enabled()) {
+        return true;
+    }
     u16* unlocked_chars_bitmask = gmMainLib_GetUnlockedCharactersBitmaskPtr();
     u8 selkind = ckind_to_selkind_map[ckind];
     u8 unlock_bit = gm_SelKindToUnlockIndex(selkind);
@@ -2435,6 +2398,9 @@ void gm_80164A0C(u8 ckind)
 /// Are all unlockable characters unlocked?
 bool gm_80164ABC(void)
 {
+    if (pc_is_unlock_all_enabled()) {
+        return true;
+    }
     u16* unlockable_character_bitfield =
         gmMainLib_GetUnlockedCharactersBitmaskPtr();
     int i;
@@ -3489,7 +3455,7 @@ u8 gm_801677F0(void)
 bool gm_RumbleEnabledForPlayer(int port, int nametag)
 {
     bool result = false;
-    if (nametag == GM_NAMETAG_NONE) {
+    if (nametag == GM_NAMETAG_COUNT) {
         if (GetRumbleSettingOfPort(port)) {
             result = true;
         }
@@ -3526,7 +3492,7 @@ void gm_SetupPlayerDefaults(struct PlayerInitData* player)
     player->handicap = 9;
     player->team = 0;
     player->rumble_enabled = false;
-    player->nametag = GM_NAMETAG_NONE;
+    player->nametag = GM_NAMETAG_COUNT;
     player->xC_b1 = true;
     player->cpu_kind = 4;
     player->cpu_level = 0;

@@ -1,6 +1,6 @@
 {
   "repository": "https://github.com/999sian/melee-pc.git",
-  "revision": "adaf840577ec24e63861d97fdf6a6a85d40e28bf",
+  "revision": "ac684f13d24b8dbb4058915f17718ae81861bd3e",
   "fork": "https://github.com/turtlesoupy/opensmash-melee-pc.git",
   "branch": "opensmash/browser",
   "emscripten": "6.0.9",

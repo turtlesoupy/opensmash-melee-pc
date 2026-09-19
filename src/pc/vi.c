@@ -23,10 +23,14 @@ EM_JS(void, browser_frame_phases, (double game, double render, double services, 
 #endif
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 
 #include "pc/pc.h"
 #include "pc/launcher.h"
+#include "pc/touch.h"
 #include "pc/widescreen.h"
+#include "pc/net.h"
+#include "pc/net_lan.h"
 
 bool pc_exit_requested;
 
@@ -41,8 +45,28 @@ static bool s_in_frame;
 void pc_os_run_alarms(void);
 void aurora_heap_check(void);
 
-void pc_frame_boundary(void)
-{
+uint32_t pc_gfx_prewarm(uint32_t max_wait_ms) {
+    return aurora_wait_pipelines(max_wait_ms);
+}
+
+#ifdef __EMSCRIPTEN__
+/* A precise native sleep would block the browser event loop; the frame
+ * boundary is also the only place the page gets control back. */
+#define PC_PACE_ALWAYS 1
+static bool s_pace_waited;
+static void pc_pace_wait(u64 ns) {
+    s_pace_waited = true;
+    if (ns >= 1000000ull)
+        emscripten_sleep((unsigned)(ns / 1000000ull));
+    else
+        browser_yield();
+}
+#else
+#define PC_PACE_ALWAYS 0
+#define pc_pace_wait SDL_DelayPrecise
+#endif
+
+void pc_frame_boundary(void) {
     static int fps_log = -1;
     static u64 fps_t0;
     static u32 fps_n;
@@ -69,8 +93,41 @@ void pc_frame_boundary(void)
     extern void pc_audio_pump(void);
     pc_audio_pump();
 #endif
-    aurora_heap_check(); /* no-op unless MELEE_HEAP_CHECK is set */
+    aurora_heap_check();    /* no-op unless MELEE_HEAP_CHECK is set */
     pc_widescreen_update(); /* Auto mode follows window resizes. */
+    /* MELEE_LAN_TEST=1|host: the LAN lobby without the menu; "host" starts
+     * a match with the first peer found. MELEE_LAN_DIRECT=ip:port: the same
+     * with a known peer, no discovery (src/pc/net_lan.c). */
+    static int lan_test = -1;
+    static u32 lan_frames;
+    if (lan_test < 0) {
+        const char* t = getenv("MELEE_LAN_TEST");
+        lan_test = getenv("MELEE_LAN_DIRECT") != NULL ? 3 :
+                   t == NULL                          ? 0 :
+                   strcmp(t, "host") == 0             ? 2 :
+                                                        1;
+    }
+    if (lan_test) {
+        pc_lan_poll();
+        /* Both fixtures start only once the game has its rules loaded (the
+         * title screen), not at frame 0: RULES would carry zeros. */
+        lan_frames++;
+        if (lan_test == 2 && lan_frames >= 300 && pc_lan_state(NULL) == 0) {
+            pc_lan_start_match();
+        }
+        if (lan_test == 3 && lan_frames == 300) {
+            const char* d = getenv("MELEE_LAN_DIRECT");
+            char host[64];
+            const char* colon = strrchr(d, ':');
+            if (colon != NULL && (size_t)(colon - d) < sizeof host) {
+                memcpy(host, d, (size_t)(colon - d));
+                host[colon - d] = '\0';
+                pc_lan_connect_direct(host, (uint16_t)atoi(colon + 1));
+            } else {
+                pc_log_line("lan: MELEE_LAN_DIRECT must be ip:port");
+            }
+        }
+    }
     if (fps_log < 0) {
         fps_log = getenv("MELEE_FPS") != NULL;
         fps_t0 = SDL_GetTicks();
@@ -95,18 +152,16 @@ void pc_frame_boundary(void)
              * cannot tell a shader compile from a disc read; a timestamped
              * marker beside the surrounding records can. */
             if (delta > 50000000ull) {
-                pc_log_line("STALL %.1fms at frame %u", delta / 1e6,
-                            s_retrace_count);
+                pc_log_line("STALL %.1fms at frame %u", delta / 1e6, s_retrace_count);
             }
         }
         frame_prev_ns = now_ns;
         if (now - fps_t0 >= 1000) {
             fprintf(stderr,
-                    "fps %.1f worst %.1fms late>20ms %u late>33ms %u "
-                    "sleep_overshoot %.1fms\n",
-                    fps_n * 1000.0 / (double) (now - fps_t0),
-                    frame_worst_ns / 1e6, frame_late_20, frame_late_33,
-                    sleep_worst_over_ns / 1e6);
+                "fps %.1f worst %.1fms late>20ms %u late>33ms %u "
+                "sleep_overshoot %.1fms\n",
+                fps_n * 1000.0 / (double)(now - fps_t0), frame_worst_ns / 1e6, frame_late_20,
+                frame_late_33, sleep_worst_over_ns / 1e6);
             fflush(stderr);
             fps_t0 = now;
             fps_n = 0;
@@ -128,6 +183,7 @@ void pc_frame_boundary(void)
                 pc_menu_toggle();
             pc_menu_event(&event->sdl);
             pc_keyboard_event(&event->sdl);
+            pc_touch_event(&event->sdl);
         }
         ++event;
     }
@@ -141,28 +197,44 @@ void pc_frame_boundary(void)
     browser_apply_input();
 #endif
 
+    /* MELEE_EXIT_AFTER_FRAMES=<n>: bound a scripted run without needing
+     * synthetic input, which is unreliable under Xwayland. Setting
+     * pc_exit_requested instead of exiting here on purpose: the window-close
+     * path is the one that runs atexit(pc_shutdown_once), and skipping it is
+     * what makes Dawn's static destructors race the live device. */
+    static int exit_after = -1;
+    if (exit_after < 0) {
+        const char* n = getenv("MELEE_EXIT_AFTER_FRAMES");
+        exit_after = n != NULL ? atoi(n) : 0;
+    }
+    if (exit_after > 0 && s_retrace_count >= (u32)exit_after && !pc_exit_requested) {
+        pc_log_line("MELEE_EXIT_AFTER_FRAMES: reached frame %u, exiting", s_retrace_count);
+        pc_exit_requested = true;
+    }
     if (pc_exit_requested) {
         exit(0);
     }
 
-    /* The game is a fixed 60 Hz simulation. When Vsync is active, aurora's
-     * presentation pass is paced by the hardware display's VBlank. Only pace
-     * via SDL_DelayPrecise when Vsync is disabled or unavailable; running
-     * software sleep while hardware Vsync is active causes timing drift and
-     * missed VBlank deadlines (tripping sudden drops to 30 FPS). */
-    #ifdef __EMSCRIPTEN__
+#ifdef __EMSCRIPTEN__
     const double phase_services = emscripten_get_now();
-    {static double next;double now=emscripten_get_now();if(next<now-100)next=now;next+=1000.0/60.0;if(next>now)emscripten_sleep((unsigned)(next-now));else browser_yield();}
-    #endif
-    if (!aurora_vsync_enabled()) {
-        static u64 next_ns;
-        const u64 period = 1000000000ull / 60;
-        u64 now = SDL_GetTicksNS();
-        if (next_ns == 0 || now > next_ns + period) {
-            next_ns = now; /* first frame, or we fell behind: resync */
-        } else if (now < next_ns) {
-            const u64 want = next_ns - now;
-            SDL_DelayPrecise(want);
+    s_pace_waited = false;
+#endif
+    /* Enforce deterministic 60 Hz simulation pacing regardless of display refresh rate
+     * (e.g. 120 Hz, 144 Hz, 240 Hz high-refresh monitors). When VSync is enabled on high-refresh
+     * displays, aurora_begin_frame() unblocks at monitor refresh rate. Without this check,
+     * the simulation would run at 2x-4x speed. Pacing strictly to 60.000 Hz ensures physics,
+     * hitboxes, and timers remain bit-identical. */
+    static u64 next_sim_ns;
+    const u64 sim_period = pc_sim_period_ns();
+    u64 now = SDL_GetTicksNS();
+    if (next_sim_ns == 0 || now > next_sim_ns + sim_period * 2) {
+        next_sim_ns = now; /* first frame, or large hitch: resync */
+    } else if (now < next_sim_ns) {
+        const u64 want = next_sim_ns - now;
+        /* On standard 60 Hz VSync, aurora_begin_frame already waited for VBlank. On high-refresh
+         * (120/144/240 Hz) or VSync-off, this throttles simulation to exact 60 Hz. */
+        if (PC_PACE_ALWAYS || !aurora_vsync_enabled() || want > 2000000ull) {
+            pc_pace_wait(want);
             if (fps_log > 0) {
                 const u64 slept = SDL_GetTicksNS() - now;
                 if (slept > want && slept - want > sleep_worst_over_ns) {
@@ -170,8 +242,12 @@ void pc_frame_boundary(void)
                 }
             }
         }
-        next_ns += period;
     }
+    next_sim_ns += sim_period;
+#ifdef __EMSCRIPTEN__
+    if (!s_pace_waited)
+        browser_yield(); /* every frame returns to the event loop at least once */
+#endif
 
     /* aurora_begin_frame returns false while minimized/paused; keep pumping.
      * Sleep a frame between attempts: without it a minimized window spins a
@@ -206,7 +282,11 @@ void pc_frame_boundary(void)
     previous_boundary = phase_begin;
     EM_ASM({if(Module.onFrame)Module.onFrame($0);},s_retrace_count);
 #endif
+    /* Age of the 1000 Hz sample the sim is about to consume, before the pad
+     * alarms (fn_800195FC -> PADRead) fire from pc_os_run_alarms. */
+    pc_input_latency_record();
     pc_os_run_alarms();
+    next_sim_ns += pc_net_pace_adjust_ns(); /* time-sync skips: a longer wait next frame */
     if (s_pre_cb) {
         s_pre_cb(s_retrace_count);
     }
@@ -216,8 +296,7 @@ void pc_frame_boundary(void)
     }
 }
 
-void VIWaitForRetrace(void)
-{
+void VIWaitForRetrace(void) {
     pc_frame_boundary();
     /* The overlay pauses the game. Melee's whole simulation hangs off this
      * call returning, so keep presenting frames and pumping input here and
@@ -227,59 +306,55 @@ void VIWaitForRetrace(void)
     }
 }
 
-u32 VIGetRetraceCount(void)
-{
+u32 VIGetRetraceCount(void) {
     return s_retrace_count;
 }
 
-u32 VIGetNextField(void)
-{
+u64 pc_sim_period_ns(void) {
+    return 1000000000ull / 60;
+}
+
+u32 VIGetNextField(void) {
     return s_retrace_count & 1;
 }
 
-u32 VIGetDTVStatus(void)
-{
+u32 VIGetDTVStatus(void) {
     return 0;
 }
 
-void* VIGetCurrentFrameBuffer(void)
-{
+void* VIGetCurrentFrameBuffer(void) {
     return s_current_fb;
 }
 
-void* VIGetNextFrameBuffer(void)
-{
+void* VIGetNextFrameBuffer(void) {
     return s_next_fb;
 }
 
-void VISetNextFrameBuffer(void* fb)
-{
+void VISetNextFrameBuffer(void* fb) {
     s_next_fb = fb;
 }
 
-void VISetBlack(BOOL black)
-{
+void VISetBlack(BOOL black) {
     s_black = black;
 }
 
-VIRetraceCallback VISetPreRetraceCallback(VIRetraceCallback cb)
-{
+VIRetraceCallback VISetPreRetraceCallback(VIRetraceCallback cb) {
     VIRetraceCallback old = s_pre_cb;
     s_pre_cb = cb;
     return old;
 }
 
-VIRetraceCallback VISetPostRetraceCallback(VIRetraceCallback cb)
-{
+VIRetraceCallback VISetPostRetraceCallback(VIRetraceCallback cb) {
     VIRetraceCallback old = s_post_cb;
     s_post_cb = cb;
     return old;
 }
 
-u16 VIPadFrameBufferWidth(u16 width)
-{
-    return (u16) ((width + 15) & ~15);
+u16 VIPadFrameBufferWidth(u16 width) {
+    return (u16)((width + 15) & ~15);
 }
 #ifdef __EMSCRIPTEN__
-unsigned direct_global_804d7420(void){return (unsigned)&s_retrace_count;}
+unsigned direct_global_804d7420(void) {
+    return (unsigned)&s_retrace_count;
+}
 #endif

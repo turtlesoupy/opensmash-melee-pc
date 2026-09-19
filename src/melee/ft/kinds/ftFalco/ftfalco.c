@@ -481,6 +481,7 @@ void ftFc_Init_OnLoad(HSD_GObj* gobj)
     it_8026B3F8(DP(Article, items[0].v), sa2->x1C_FOX_BLASTER_SHOT_ITKIND);
     it_8026B3F8(DP(Article, items[1].v), sa2->x20_FOX_BLASTER_GUN_ITKIND);
     it_8026B3F8(DP(Article, items[3].v), It_Kind_Falco_Phantasm);
+    fp->u.fx.x222C_blasterGObj = NULL;
 }
 
 void ftFc_Init_LoadSpecialAttrs(HSD_GObj* gobj)

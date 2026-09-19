@@ -1,4 +1,6 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
+# Static wasm link: position-independent objects only add GOT indirection.
+set(CMAKE_POSITION_INDEPENDENT_CODE OFF)
 set(BUILD_SHARED_LIBS OFF CACHE BOOL "" FORCE)
 set(AURORA_ENABLE_DVD OFF CACHE BOOL "" FORCE)
 set(AURORA_ENABLE_CARD ON CACHE BOOL "" FORCE)
@@ -10,23 +12,34 @@ add_compile_definitions(ENABLE_BACKEND_WEBGPU)
 add_compile_options(--use-port=emdawnwebgpu -pthread)
 add_link_options(--use-port=emdawnwebgpu -pthread -sALLOW_MEMORY_GROWTH=1 -sASYNCIFY=1)
 add_subdirectory(${CMAKE_SOURCE_DIR}/extern/aurora ${CMAKE_BINARY_DIR}/aurora)
+# Same floating-point contract as the native build (top-level CMakeLists.txt).
+set(MELEE_FP_FLAGS -ffp-contract=off -fno-fast-math)
+target_compile_options(aurora_mtx PRIVATE ${MELEE_FP_FLAGS}
+  -fno-builtin-sinf -fno-builtin-cosf -fno-builtin-tanf -fno-builtin-atanf
+  -include ${CMAKE_SOURCE_DIR}/src/pc/libm/pc_trig.h)
+target_compile_options(aurora_gx PRIVATE ${MELEE_FP_FLAGS})
+target_compile_options(aurora_gd PRIVATE ${MELEE_FP_FLAGS})
+# The upstream PC layer, minus what the browser replaces: main.c and
+# disc_open.c (platforms/browser/main.c, dvd.c), and the launcher, updater,
+# GameCube adapter and file cache (pc_stubs.c). Keep in step with PC_SOURCES in
+# the top-level CMakeLists.txt.
+set(BROWSER_PC_SOURCES
+ audio.c discfont.c gx.c input_poll.c keyboard.c misc.c os.c region.c stb_vorbis.c thp.c touch.c vi.c widescreen.c
+ android_compat.cpp music_stream.cpp textures.cpp
+ net.c net_handshake.c net_lan.c net_reliable.c net_sim.c net_snapshot.c net_sync.c net_wire.c
+ libm/pc_atanf.c libm/pc_cosdf.c libm/pc_cosf.c libm/pc_perturb.c libm/pc_rem_pio2_large.c
+ libm/pc_rem_pio2f.c libm/pc_sindf.c libm/pc_sinf.c libm/pc_tandf.c libm/pc_tanf.c)
+list(TRANSFORM BROWSER_PC_SOURCES PREPEND ${CMAKE_SOURCE_DIR}/src/pc/)
 file(GLOB_RECURSE GAME_OBJECTS CONFIGURE_DEPENDS "${CMAKE_SOURCE_DIR}/build/browser/game/*.o")
 set_source_files_properties(${GAME_OBJECTS} PROPERTIES EXTERNAL_OBJECT TRUE GENERATED TRUE)
 add_executable(melee_browser ${GAME_OBJECTS}
- main.c dvd.c scheduler.c warmup.c presentation_globals.c presentation_memory.c
- ${CMAKE_SOURCE_DIR}/src/pc/audio.c
- ${CMAKE_SOURCE_DIR}/src/pc/discfont.c
- ${CMAKE_SOURCE_DIR}/src/pc/gx.c
- ${CMAKE_SOURCE_DIR}/src/pc/keyboard.c
- ${CMAKE_SOURCE_DIR}/src/pc/misc.c
- ${CMAKE_SOURCE_DIR}/src/pc/os.c
- ${CMAKE_SOURCE_DIR}/src/pc/thp.c
- ${CMAKE_SOURCE_DIR}/src/pc/vi.c
- ${CMAKE_SOURCE_DIR}/src/pc/widescreen.c)
+ main.c dvd.c scheduler.c warmup.c presentation_globals.c presentation_memory.c pc_stubs.c
+ ${BROWSER_PC_SOURCES})
 target_include_directories(melee_browser PRIVATE ${CMAKE_SOURCE_DIR}/extern/aurora/include ${CMAKE_SOURCE_DIR}/src ${CMAKE_SOURCE_DIR}/src/sdk_include)
 target_link_libraries(melee_browser PRIVATE aurora::core aurora::gx aurora::gd aurora::vi aurora::pad aurora::si aurora::mtx aurora::os aurora::card aurora::thp)
-target_compile_options(melee_browser PRIVATE -Wno-incompatible-pointer-types -Wno-int-conversion)
-target_link_options(melee_browser PRIVATE -O1 --profiling-funcs -sEMULATE_FUNCTION_POINTER_CASTS=1 -sSTACK_SIZE=8388608 -sINITIAL_MEMORY=268435456 -sMAXIMUM_MEMORY=2147483648 -sPTHREAD_POOL_SIZE=4 -sEXIT_RUNTIME=0 -sASSERTIONS=0 -lidbfs.js -sFORCE_FILESYSTEM=1 -sEXPORTED_RUNTIME_METHODS=callMain,FS,ENV -sINVOKE_RUN=0 -sASYNCIFY_IMPORTS=browser_disc_read -sASYNCIFY_STACK_SIZE=1048576 -sERROR_ON_UNDEFINED_SYMBOLS=1)
+target_compile_definitions(melee_browser PRIVATE TARGET_PC=1 MELEE_PC=1 MELEE_USE_BUILTIN_SHA1)
+target_compile_options(melee_browser PRIVATE -Wno-incompatible-pointer-types -Wno-int-conversion ${MELEE_FP_FLAGS})
+target_link_options(melee_browser PRIVATE -O1 --profiling-funcs -sEMULATE_FUNCTION_POINTER_CASTS=1 -sSTACK_SIZE=8388608 -sINITIAL_MEMORY=268435456 -sMAXIMUM_MEMORY=2147483648 -sPTHREAD_POOL_SIZE=4 -sEXIT_RUNTIME=0 -sASSERTIONS=0 -lidbfs.js -sFORCE_FILESYSTEM=1 -sEXPORTED_RUNTIME_METHODS=callMain,FS,ENV -sINVOKE_RUN=0 -sASYNCIFY_IMPORTS=browser_disc_read -sASYNCIFY_STACK_SIZE=1048576 -sERROR_ON_UNDEFINED_SYMBOLS=1 -Wl,--error-limit=0)
 set_target_properties(melee_browser PROPERTIES SUFFIX ".js")
 # emcc's single-pass link fails validation at -O2/-O3 when --fpcast-emu runs
 # ahead of the optimizer (direct calls into cast thunks keep the original

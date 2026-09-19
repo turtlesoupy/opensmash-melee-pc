@@ -10,6 +10,9 @@
 #include "ifstatus.h"
 #include "ifstock.h"
 #include "iftime.h"
+#ifdef TARGET_PC
+#include "ifnet.h"
+#endif
 #include <melee/lb/lb_00B0.h>
 #include <melee/lb/lbarchive.h>
 #include <melee/lb/lbspdisplay.h>
@@ -21,6 +24,9 @@
 #include <sysdolphin/baselib/gobjplink.h>
 #include <sysdolphin/baselib/jobj.h>
 #include <sysdolphin/baselib/lobj.h>
+
+#include "pc/pc.h"
+#include "pc/widescreen.h"
 
 static struct ifAll_804A0FD8_t {
     /* 0x00 */ HSD_GObj* gobj;
@@ -123,6 +129,25 @@ void ifAll_802F343C(int arg0)
         }
         break;
     }
+
+    if (pc_get_hud_mode() == 1) {
+        if (arg0 == 4) {
+            for (i = 0; i < 4; i++) {
+                ifAll_804A0FD8.x18[i].x =
+                    pc_widescreen_hud_player_x(i, 4, ifAll_804A0FD8.x18[i].x);
+            }
+        } else if (arg0 == 2) {
+            for (i = 0; i < 2; i++) {
+                ifAll_804A0FD8.x18[i].x =
+                    pc_widescreen_hud_player_x(i, 2, ifAll_804A0FD8.x18[i].x);
+            }
+        } else if (arg0 == 3) {
+            for (i = 0; i < 3; i++) {
+                ifAll_804A0FD8.x18[i].x =
+                    pc_widescreen_hud_player_x(i, 3, ifAll_804A0FD8.x18[i].x);
+            }
+        }
+    }
 }
 
 HSD_Archive** ifAll_GetArchive(void)
@@ -192,6 +217,14 @@ static void ifAll_802F370C(SceneDesc* arg0)
         lb_8000B1CC(spC, NULL, &ifAll_804A0FD8.x84[i]);
     }
     HSD_GObjFree(gobj);
+
+    if (pc_get_hud_mode() == 1) {
+        ifAll_804A0FD8.xC.x = pc_widescreen_hud_timer_x(ifAll_804A0FD8.xC.x);
+        for (i = 0; i < 4; i++) {
+            ifAll_804A0FD8.x18[i].x =
+                pc_widescreen_hud_player_x(i, 4, ifAll_804A0FD8.x18[i].x);
+        }
+    }
 }
 
 void ifAll_802F390C(void)
@@ -212,7 +245,7 @@ void ifAll_802F390C(void)
     {
         HSD_CObjDesc* desc = DP(HSD_CObjDesc, DP(struct SceneCameraDesc, sp14->cameras)[0].desc);
         HSD_GObj* gobj = GObj_Create(0x13, 0x14, 0);
-        HSD_CObj* cobj = lb_80013B14((HSD_CameraDescPerspective*) desc);
+        HSD_CObj* cobj = lb_80013B14(&desc->perspective);
         HSD_GObjObject_80390A70(gobj, HSD_GObj_CameraKind, cobj);
         GObj_SetupGXLinkMax(gobj, fn_802F36B8, 8);
         gobj->gxlink_prios = 0xD00;
@@ -239,6 +272,9 @@ void ifAll_802F390C(void)
     un_802FD4C8();
     un_802FF1B4();
     un_802FF498();
+#ifdef TARGET_PC
+    ifNet_Create();
+#endif
 }
 
 void ifAll_802F3A64(void)
@@ -269,4 +305,7 @@ void ifAll_802F3A64(void)
     un_802FE390();
     un_802FF190();
     un_802FF4FC();
+#ifdef TARGET_PC
+    ifNet_Free();
+#endif
 }

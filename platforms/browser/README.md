@@ -28,6 +28,14 @@ with Emscripten. Ordinary runtime structs remain native-endian. Compiler tests
 compare both values and bytes with GCC before building the game. Do not apply
 whole-structure byte swaps to replace this lowering.
 
+The browser links upstream's `src/pc` platform layer unchanged wherever it can
+(netplay, region, vendored trig, music stream, textures, touch). Only the
+desktop launcher, updater, GameCube adapter, and archive file cache are replaced,
+by `pc_stubs.c`; `main.c` and `dvd.c` replace the native entry point and nod.
+When an upstream sync adds a file to `PC_SOURCES`, add it to
+`BROWSER_PC_SOURCES` in `CMakeLists.txt` unless it belongs to one of those
+replaced pieces. Game units use the same floating-point flags as native builds.
+
 Browser WebGPU calls run in one realm. The launcher hosts that realm in an
 iframe, exchanges frame bitmaps and input through the existing session protocol,
 and consumes the upstream audio mixer through a shared ring buffer. Legacy

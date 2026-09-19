@@ -88,6 +88,10 @@ static std::deque<PendingPipeline> g_pipelineQueue;
 static std::deque<PendingPipeline> g_backgroundPipelineQueue;
 static absl::flat_hash_set<PipelineRef> g_pendingPipelines;
 static std::atomic_bool g_gpuCachePrunePending = false;
+// Thread-less platforms leave cached/seeded pipelines in the background queue
+// untouched at frame end. A caller that owns a loading screen sets this to
+// compile them there instead (browser_prepare_graphics).
+static bool g_drainBackgroundQueue = false;
 
 static bool env_flag(const char* name) {
   const char* v = std::getenv(name);
@@ -1028,7 +1032,7 @@ static void pipeline_worker() {
         g_pipelineQueueCv.wait(lock, [] {
           return !g_pipelineQueue.empty() || !g_backgroundPipelineQueue.empty() || g_pipelineThreadEnd;
         });
-      } else if (g_pipelineQueue.empty()) {
+      } else if (g_pipelineQueue.empty() && (!g_drainBackgroundQueue || g_backgroundPipelineQueue.empty())) {
         // On platforms without a background compilation thread (e.g. mobile/Android),
         // only process pipelines actively queued by the current frame (g_pipelineQueue).
         // Never stall the presentation loop compiling unneeded background pipelines.
@@ -1037,7 +1041,7 @@ static void pipeline_worker() {
       if (g_pipelineThreadEnd) {
         break;
       }
-      auto& source = (!g_hasPipelineThread || !g_pipelineQueue.empty()) ? g_pipelineQueue : g_backgroundPipelineQueue;
+      auto& source = !g_pipelineQueue.empty() ? g_pipelineQueue : g_backgroundPipelineQueue;
       pending = std::move(source.front());
       source.pop_front();
     }
@@ -1264,12 +1268,14 @@ extern "C" void browser_prepare_graphics() {
   const size_t total = g_pipelineQueue.size() + g_backgroundPipelineQueue.size();
   if (!total) return;
   browser_graphics_progress(0, total);
+  g_drainBackgroundQueue = true;
   while (!g_pipelineQueue.empty() || !g_backgroundPipelineQueue.empty()) {
     g_pipelinesPerFrame = 0;
     pipeline_worker();
     browser_graphics_progress(total - g_pipelineQueue.size() - g_backgroundPipelineQueue.size(), total);
     browser_yield();
   }
+  g_drainBackgroundQueue = false;
   Log.info("Prepared {} cached browser pipelines before simulation", total);
 }
 #endif

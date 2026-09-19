@@ -1,0 +1,156 @@
+{
+ "date": "2026-09-19",
+ "upstream": "ac684f13d24b8dbb4058915f17718ae81861bd3e",
+ "upstreamTag": "v0.1.8-beta",
+ "scope": "Headed Chrome on Apple Silicon, GALE01 rev 2. Roster/smoke/flows serial; stages in four parallel shards (pass/fail only, timings not comparable). Legacy-save and custom-fixture cases not rerun.",
+ "smoke": [
+  {
+   "name": "two-player",
+   "status": "passed",
+   "startupMs": 7645,
+   "fps": 59.99875002604112,
+   "p95": 17.180000066757202,
+   "p99": 19.585000038146973,
+   "maxFrameMs": 21.81500005722046
+  },
+  {
+   "name": "four-player",
+   "status": "passed",
+   "startupMs": 10126,
+   "fps": 59.9995200038209,
+   "p95": 17.234999895095825,
+   "p99": 20.34500002861023,
+   "maxFrameMs": 22.394999980926514
+  }
+ ],
+ "roster": {
+  "cases": 26,
+  "passed": 26,
+  "minFps": 59.98950183527181,
+  "maxP99": 21.824999809265137,
+  "meanStartupMs": 7408
+ },
+ "stages": {
+  "cases": 29,
+  "passed": 29
+ },
+ "flows": [
+  {
+   "name": "custom-results",
+   "status": "passed"
+  },
+  {
+   "name": "custom-css-pages",
+   "status": "passed"
+  },
+  {
+   "name": "classic",
+   "status": "passed"
+  },
+  {
+   "name": "adventure",
+   "status": "passed"
+  },
+  {
+   "name": "all-star",
+   "status": "passed"
+  },
+  {
+   "name": "vs-menu",
+   "status": "passed"
+  },
+  {
+   "name": "full-boot",
+   "status": "passed"
+  }
+ ],
+ "unifiedShell": {
+  "note": "Run 1 was the first launch after rebuilding and had one 398 ms frame in its first window (cold GPU shader cache); runs 2 and 3 and the relaunch run passed all gates.",
+  "run2": [
+   {
+    "type": "startup-performance",
+    "clickToMatchMs": 7644
+   },
+   {
+    "type": "combat-performance",
+    "fps": 59.995450344824796,
+    "p95": 17.835000038146973,
+    "p99": 22.22000002861023,
+    "maxFrameMs": 28.825000047683716,
+    "over33ms": 0,
+    "audioUnderrunSamples": 0
+   },
+   {
+    "type": "combat-performance",
+    "fps": 60.000802897819085,
+    "p95": 17.94000005722046,
+    "p99": 21.450000047683716,
+    "maxFrameMs": 36.125,
+    "over33ms": 1,
+    "audioUnderrunSamples": 0
+   },
+   {
+    "type": "combat-performance",
+    "fps": 59.99938000652104,
+    "p95": 19.080000162124634,
+    "p99": 21.944999933242798,
+    "maxFrameMs": 29.819999933242798,
+    "over33ms": 0,
+    "audioUnderrunSamples": 0
+   }
+  ],
+  "run3": [
+   {
+    "type": "startup-performance",
+    "clickToMatchMs": 7981
+   },
+   {
+    "type": "combat-performance",
+    "fps": 59.995450344824796,
+    "p95": 17.735000133514404,
+    "p99": 20.30999994277954,
+    "maxFrameMs": 26.34999990463257,
+    "over33ms": 0,
+    "audioUnderrunSamples": 0
+   },
+   {
+    "type": "combat-performance",
+    "fps": 60.00104277218625,
+    "p95": 17.795000076293945,
+    "p99": 20.81500005722046,
+    "maxFrameMs": 31.019999980926514,
+    "over33ms": 0,
+    "audioUnderrunSamples": 0
+   },
+   {
+    "type": "combat-performance",
+    "fps": 59.99917380386692,
+    "p95": 17.855000019073486,
+    "p99": 20.490000009536743,
+    "maxFrameMs": 24.619999885559082,
+    "over33ms": 0,
+    "audioUnderrunSamples": 0
+   }
+  ],
+  "relaunch": "passed",
+  "rosterIdle": {
+   "warmingMs": 3,
+   "warming": {
+    "frames": 0,
+    "p99": 0,
+    "max": 0,
+    "over50": 0,
+    "over100": 0
+   },
+   "idle": {
+    "frames": 242,
+    "p99": 9.284999999999854,
+    "max": 9.30999999999949,
+    "over50": 0,
+    "over100": 0
+   },
+   "errors": []
+  }
+ },
+ "regressionFound": "browser_prepare_graphics spun forever once upstream stopped draining the background pipeline queue on thread-less platforms; only reachable with a seeded cache (unified shell), not the standalone page. Fixed with g_drainBackgroundQueue."
+}

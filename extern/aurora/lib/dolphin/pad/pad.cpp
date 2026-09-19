@@ -726,6 +726,20 @@ u32 PADRead(PADStatus* status) {
     if (device_rumble_available_for_port(i)) {
       rumbleSupport |= PAD_CHAN0_BIT;
     }
+#ifdef __EMSCRIPTEN__
+    // The launcher already maps every input for this port. Reading SDL too
+    // reintroduces the physical button's default action after a remap.
+    // Keep ownership even for neutral/disconnected packets so SDL cannot
+    // reactivate a blocked or unassigned controller.
+    if (g_virtualPadActive[i]) {
+      status[i] = g_virtualPadStatus[i];
+      if (g_blockPAD) {
+        neutralize_status(status[i]);
+        status[i].extButton = 0;
+      }
+      continue;
+    }
+#endif
     auto controller = aurora::input::get_controller_for_player(i);
     if (controller == nullptr && !g_keyboardBindings[i].m_mappingsSet && !g_virtualPadActive[i]) {
       status[i].err = PAD_ERR_NO_CONTROLLER;
@@ -954,7 +968,9 @@ void PADSetVirtualStatus(const u32 port, const PADStatus* virtualStatus) {
   }
 
   g_virtualPadStatus[port] = *virtualStatus;
+#ifndef __EMSCRIPTEN__
   g_virtualPadStatus[port].err = PAD_ERR_NONE;
+#endif
   g_virtualPadActive[port] = true;
 }
 

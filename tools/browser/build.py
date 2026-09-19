@@ -6,6 +6,7 @@ p=argparse.ArgumentParser();p.add_argument('--jobs',type=int,default=6);a=p.pars
 sdk=pathlib.Path(os.environ.get('MELEE_EMSDK',str(root/'build/browser/emsdk')))
 def run(cmd):subprocess.run(list(map(str,cmd)),cwd=root,check=True)
 run([sys.executable,root/'tests/browser/test_execution_charset.py'])
+run([sys.executable,root/'tests/browser/test_pad_ownership.py'])
 run([sys.executable,root/'tools/browser/build_lower.py'])
 run([sys.executable,root/'tools/browser/test_disc_lower.py'])
 run([sys.executable,root/'tools/browser/compile_game.py','--jobs',a.jobs])

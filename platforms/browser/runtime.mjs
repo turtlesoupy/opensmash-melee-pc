@@ -13,8 +13,13 @@ const fail=error=>{
  const message=[reason,...diagnostics].join('\n');
  rejectRuntime?.(Error(message));report('error',{message});
 };
-window.addEventListener('error',event=>fail(event.error||event.message));
-window.addEventListener('unhandledrejection',event=>fail(event.reason));
+// Wallet/ad-block extensions inject scripts into every frame, including this
+// one; their own rejections (e.g. "Failed to connect to MetaMask") must not
+// abort a running match.
+const extensionSource=/(?:chrome|moz|safari(?:-web)?)-extension:\/\//;
+const fromExtension=(...sources)=>sources.some(source=>extensionSource.test(String(source?.stack??source??'')));
+window.addEventListener('error',event=>{if(!fromExtension(event.filename,event.error))fail(event.error||event.message);});
+window.addEventListener('unhandledrejection',event=>{if(!fromExtension(event.reason))fail(event.reason);});
 let resolveRuntime;
 const runtimeReady=new Promise((resolve,reject)=>{resolveRuntime=resolve;rejectRuntime=reject;});
 void runtimeReady.catch(()=>{});
